@@ -310,6 +310,29 @@ function Get-WebcamInfo {
 function Find-ExamBrowserExe {
     param([string]$customDir)
 
+    # 0. Periksa SHORTCUT (.lnk) di Desktop (User Desktop & Public Desktop)
+    $desktopFolders = @(
+        [Environment]::GetFolderPath('Desktop'),
+        (Join-Path $env:USERPROFILE 'Desktop'),
+        'C:\Users\Public\Desktop'
+    ) | Where-Object { $_ -and (Test-Path $_) }
+
+    try {
+        $wsh = New-Object -ComObject WScript.Shell
+        foreach ($desk in $desktopFolders) {
+            $shortcuts = Get-ChildItem -Path $desk -Filter '*.lnk' -ErrorAction SilentlyContinue
+            foreach ($lnk in $shortcuts) {
+                if ($lnk.Name -match '(?i)exam|anbk|cbt|browser') {
+                    $sc = $wsh.CreateShortcut($lnk.FullName)
+                    if ($sc.TargetPath -and (Test-Path $sc.TargetPath) -and ($sc.TargetPath -match '(?i)\.exe$')) {
+                        Write-Host "[Otomasi] ExamBrowser ditemukan melalui Shortcut Desktop: $($lnk.Name) -> $($sc.TargetPath)" -ForegroundColor Green
+                        return $sc.TargetPath
+                    }
+                }
+            }
+        }
+    } catch {}
+
     $dirsToCheck = @()
     if ($customDir -and (Test-Path $customDir)) { $dirsToCheck += $customDir }
     if ($Script:Config.defaultExamBrowserDir) { $dirsToCheck += $Script:Config.defaultExamBrowserDir }

@@ -39,7 +39,6 @@ schtasks /create /tn "RemoteExambro_Agent" /tr "wscript.exe \"%TARGET_DIR%\Silen
 
 echo [4/4] Menjalankan agen di sesi aktif saat ini...
 start "" wscript.exe "%TARGET_DIR%\SilentRunner.vbs"
-schtasks /run /tn "RemoteExambro_Agent" >nul 2>&1
 
 echo.
 echo ==========================================================

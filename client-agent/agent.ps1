@@ -30,6 +30,16 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
 # Set TLS security protocol
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls
 
+# Cegah proses agen ganda (Hentikan proses agen lama jika ada agar tidak terjadi zombie / berebut polling)
+try {
+    $currentPid = $PID
+    Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue | Where-Object {
+        $_.ProcessId -ne $currentPid -and $_.CommandLine -match "agent\.ps1"
+    } | ForEach-Object {
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+} catch {}
+
 # Load Assemblies
 Add-Type -AssemblyName UIAutomationClient -ErrorAction SilentlyContinue
 Add-Type -AssemblyName UIAutomationTypes -ErrorAction SilentlyContinue

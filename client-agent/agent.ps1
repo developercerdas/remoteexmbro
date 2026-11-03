@@ -98,6 +98,37 @@ public class Win32 {
         return false;
     }
 
+    public static bool ClickAnyDialogButton(string buttonLabels) {
+        var opts = buttonLabels.Split('|');
+        bool success = false;
+
+        EnumWindows((h, l) => {
+            if (!IsWindowVisible(h)) return true;
+            IntPtr targetBtn = IntPtr.Zero;
+            EnumChildWindows(h, (child, l2) => {
+                var btnTxt = new StringBuilder(512);
+                GetWindowText(child, btnTxt, 512);
+                var btnCls = new StringBuilder(64);
+                GetClassName(child, btnCls, 64);
+
+                string cleanTxt = btnTxt.ToString().Replace("&", "").Trim();
+                if (btnCls.ToString() == "Button" && MatchesAny(cleanTxt, opts)) {
+                    targetBtn = child;
+                }
+                return true;
+            }, IntPtr.Zero);
+
+            if (targetBtn != IntPtr.Zero) {
+                SendMessage(targetBtn, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+                success = true;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        return success;
+    }
+
     public static bool ClickDialogButton(string titleKeyword, string buttonLabels) {
         var opts = buttonLabels.Split('|');
         bool success = false;
@@ -475,24 +506,53 @@ function Start-ExamBrowserOtomasi {
         if ($runClicked) { break }
     }
 
-    # 3. Khusus mode webcam: tangani dialog prompt izin "merekam aktifitas"
-    $webcamHandled = $false
-    if ($WithWebcam) {
-        Write-Host "[Otomasi] Menunggu dialog konfirmasi webcam..." -ForegroundColor Cyan
-        for ($j = 0; $j -lt 30; $j++) {
-            Start-Sleep -Seconds 1
-            if ([Win32]::ClickDialogButton('merekam aktifitas', 'Yes|Ya')) {
-                $webcamHandled = $true
-                Write-Host "[Otomasi] Izin webcam otomatis disetujui (Yes/Ya)!" -ForegroundColor Green
-                break
-            }
+    # 3. Tangani dialog konfirmasi setelah klik RUN (Yes/No, Izin Webcam, atau OK)
+    Write-Host "[Otomasi] Menunggu dialog konfirmasi setelah RUN (Yes/No / Izin Webcam)..." -ForegroundColor Cyan
+    $confirmHandled = $false
+
+    for ($j = 0; $j -lt 30; $j++) {
+        Start-Sleep -Seconds 1
+
+        # Cek tombol Yes / Ya via Win32 API
+        if ([Win32]::ClickAnyDialogButton('Yes|Ya|&Yes|&Ya')) {
+            $confirmHandled = $true
+            Write-Host "[Otomasi] Dialog konfirmasi (Yes/Ya) berhasil diklik otomatis!" -ForegroundColor Green
+            break
         }
+
+        # Cek tombol OK tambahan jika ada
+        if ([Win32]::ClickDialogButton('autoupdate', 'OK')) {
+            Write-Host "[Otomasi] Popup dialog OK berhasil diklik!" -ForegroundColor Green
+        }
+
+        # Cek tombol Yes / Ya via UIAutomation Element
+        try {
+            $allWins = $AE::RootElement.FindAll('Children', [System.Windows.Automation.Condition]::TrueCondition)
+            foreach ($aw in $allWins) {
+                foreach ($ab in $aw.FindAll('Descendants', [System.Windows.Automation.Condition]::TrueCondition)) {
+                    if ($ab.Current.Name -match '^\s*(&?Yes|&?Ya)\s*$') {
+                        $p = $null
+                        if ($ab.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) {
+                            $p.Invoke()
+                        } else {
+                            $r = $ab.Current.BoundingRectangle
+                            [Win32]::ClickAt([int]($r.X + $r.Width/2), [int]($r.Y + $r.Height/2))
+                        }
+                        $confirmHandled = $true
+                        Write-Host "[Otomasi] Tombol Yes/Ya berhasil ditekan via UIAutomation!" -ForegroundColor Green
+                        break
+                    }
+                }
+                if ($confirmHandled) { break }
+            }
+        } catch {}
+
+        if ($confirmHandled) { break }
     }
 
     $msg = "ExamBrowser berhasil dibuka dan tombol RUN diklik."
-    if ($WithWebcam) {
-        $camStatus = if ($webcamHandled) { "Izin kamera otomatis disetujui" } else { "Prompt kamera tidak muncul / sudah aktif" }
-        $msg += " (Mode Webcam: $camStatus)"
+    if ($confirmHandled) {
+        $msg += " (Konfirmasi Yes otomatis disetujui)"
     }
 
     return @{

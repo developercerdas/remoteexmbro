@@ -1,0 +1,18 @@
+[
+  {
+    "clientId": "PC_EC9A0C1E956D",
+    "processId": "WIN-0FG5VC2D0L2",
+    "hostname": "WIN-0FG5VC2D0L2",
+    "ip": "10.10.11.67",
+    "mac": "EC-9A-0C-1E-95-6D",
+    "username": "WIN-0FG5VC2D0L2\\Administrator",
+    "exambrowserRunning": true,
+    "exambrowserPid": 1408,
+    "webcamAvailable": true,
+    "webcamName": "HP Integrated Webcam",
+    "osVersion": "Microsoft Windows NT 10.0.19045.0",
+    "uptime": 3,
+    "lastSeen": 1793671902353,
+    "online": true
+  }
+]

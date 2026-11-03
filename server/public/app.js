@@ -35,6 +35,29 @@ function connectWebSocket() {
         state.logs = msg.data.logs || [];
         document.getElementById('serverIpBadge').textContent = `${state.serverIp}:${state.port}`;
         renderAll();
+      } else if (msg.type === 'CAMERA_UPDATE') {
+        if (activeCameraClientId === msg.clientId) {
+          const imgEl = document.getElementById('modalCameraImg');
+          const loadingEl = document.getElementById('modalCameraLoading');
+          const infoEl = document.getElementById('modalCameraInfo');
+          const timeEl = document.getElementById('modalCameraTime');
+
+          if (imgEl) {
+            imgEl.src = msg.image;
+            imgEl.classList.remove('hidden');
+          }
+          if (loadingEl) loadingEl.classList.add('hidden');
+          if (infoEl) infoEl.textContent = `Perangkat: ${msg.webcamName || 'Kamera Siswa'} (${msg.hostname || ''})`;
+          if (timeEl) timeEl.textContent = `Waktu Pengambilan: ${msg.time}`;
+        }
+      } else if (msg.type === 'SCREENSHOT_UPDATE') {
+        // Realtime update modal screenshot jika sedang dibuka
+        const imgEl = document.getElementById('modalScreenshotImg');
+        const timeEl = document.getElementById('modalScreenshotTime');
+        if (imgEl && !document.getElementById('modalScreenshot').classList.contains('hidden')) {
+          imgEl.src = msg.image;
+          if (timeEl) timeEl.textContent = `Diambil pada: ${msg.time}`;
+        }
       } else if (msg.type === 'CLIENTS_UPDATE') {
         state.clients = msg.data;
         renderAll();
@@ -42,12 +65,14 @@ function connectWebSocket() {
           const currentCamClient = state.clients.find(c => c.clientId === activeCameraClientId);
           if (currentCamClient && currentCamClient.latestCameraImage) {
             const imgEl = document.getElementById('modalCameraImg');
-            if (imgEl && imgEl.src !== currentCamClient.latestCameraImage) {
+            const loadingEl = document.getElementById('modalCameraLoading');
+            if (imgEl) {
               imgEl.src = currentCamClient.latestCameraImage;
               imgEl.classList.remove('hidden');
-              document.getElementById('modalCameraInfo').textContent = `Perangkat Kamera: ${currentCamClient.webcamName || 'Webcam Aktif'}`;
-              document.getElementById('modalCameraTime').textContent = `Waktu: ${currentCamClient.cameraTime || '-'}`;
             }
+            if (loadingEl) loadingEl.classList.add('hidden');
+            document.getElementById('modalCameraInfo').textContent = `Perangkat: ${currentCamClient.webcamName || 'Kamera Siswa'}`;
+            document.getElementById('modalCameraTime').textContent = `Waktu Pengambilan: ${currentCamClient.cameraTime || '-'}`;
           }
         }
       } else if (msg.type === 'LOG_ENTRY') {
@@ -445,18 +470,28 @@ function openCameraModal(client) {
   activeCameraClientId = client.clientId;
   document.getElementById('modalCameraTitle').textContent = `Pantauan Kamera: ${client.hostname} (${client.ip})`;
   const imgEl = document.getElementById('modalCameraImg');
+  const loadingEl = document.getElementById('modalCameraLoading');
   const infoEl = document.getElementById('modalCameraInfo');
+  const timeEl = document.getElementById('modalCameraTime');
 
   if (client.latestCameraImage) {
     imgEl.src = client.latestCameraImage;
     imgEl.classList.remove('hidden');
-    infoEl.textContent = `Perangkat Kamera: ${client.webcamName || 'Webcam Aktif'}`;
-    document.getElementById('modalCameraTime').textContent = `Waktu: ${client.cameraTime || '-'}`;
+    if (loadingEl) loadingEl.classList.add('hidden');
+    infoEl.textContent = `Perangkat: ${client.webcamName || 'Kamera Siswa'}`;
+    timeEl.textContent = `Waktu Pengambilan: ${client.cameraTime || '-'}`;
+  } else if (client.latestScreenshot) {
+    imgEl.src = client.latestScreenshot;
+    imgEl.classList.remove('hidden');
+    if (loadingEl) loadingEl.classList.add('hidden');
+    infoEl.textContent = `Tampilan Layar & Feed Kamera Siswa (Meminta snapshot baru...)`;
+    timeEl.textContent = `Waktu: ${client.screenshotTime || '-'}`;
   } else {
     imgEl.src = '';
     imgEl.classList.add('hidden');
-    infoEl.textContent = 'Sedang meminta foto kamera dari PC siswa, mohon tunggu...';
-    document.getElementById('modalCameraTime').textContent = 'Meminta gambar...';
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    infoEl.textContent = 'Menghubungi agen client, mohon tunggu...';
+    timeEl.textContent = 'Meminta gambar...';
   }
   document.getElementById('modalCamera').classList.remove('hidden');
 }
@@ -577,7 +612,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnRefreshCamera').addEventListener('click', () => {
     if (activeCameraClientId) {
       sendCommand('camera_snapshot', [activeCameraClientId]);
-      document.getElementById('modalCameraInfo').textContent = 'Sedang mengambil foto kamera terbaru...';
+      const loadingEl = document.getElementById('modalCameraLoading');
+      if (loadingEl) loadingEl.classList.remove('hidden');
+      document.getElementById('modalCameraInfo').textContent = 'Sedang mengambil foto kamera terbaru dari PC siswa...';
     }
   });
 

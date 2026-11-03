@@ -78,6 +78,63 @@ public class Win32 {
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDesktopWindow();
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDC(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+
+    [DllImport("gdi32.dll")]
+    public static extern bool BitBlt(IntPtr hdcDest, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hdcSrc, int nXSrc, int nYSrc, int dwRop);
+
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteDC(IntPtr hdc);
+
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteObject(IntPtr hObject);
+
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int nIndex);
+
+    public const int SRCCOPY = 0x00CC0020;
+
+    public static IntPtr CaptureDesktopHBitmap(out int width, out int height) {
+        width = GetSystemMetrics(0);
+        height = GetSystemMetrics(1);
+        if (width <= 0) width = 1024;
+        if (height <= 0) height = 768;
+
+        IntPtr hDeskWnd = GetDesktopWindow();
+        IntPtr hDeskDC = GetDC(hDeskWnd);
+        if (hDeskDC == IntPtr.Zero) {
+            hDeskDC = GetDC(IntPtr.Zero);
+        }
+
+        IntPtr hMemDC = CreateCompatibleDC(hDeskDC);
+        IntPtr hBitmap = CreateCompatibleBitmap(hDeskDC, width, height);
+        IntPtr hOldBitmap = SelectObject(hMemDC, hBitmap);
+
+        BitBlt(hMemDC, 0, 0, width, height, hDeskDC, 0, 0, SRCCOPY);
+
+        SelectObject(hMemDC, hOldBitmap);
+        DeleteDC(hMemDC);
+        ReleaseDC(hDeskWnd, hDeskDC);
+
+        return hBitmap;
+    }
+
     public const int BM_CLICK = 0x00F5;
     public const int MOUSEEVENTF_LEFTDOWN = 0x02;
     public const int MOUSEEVENTF_LEFTUP = 0x04;
@@ -646,9 +703,58 @@ function Stop-ExamBrowserForce {
     }
 }
 
-function Capture-CameraSnapshot {
+function Capture-CleanScreenJpeg {
+    param(
+        [int]$TargetWidth = 640,
+        [long]$Quality = 55
+    )
     try {
-        # 1. Cek jika ExamCam menyimpan foto di folder Temp
+        $w = 0
+        $h = 0
+        $hBitmap = [Win32]::CaptureDesktopHBitmap([ref]$w, [ref]$h)
+        if ($hBitmap -eq [IntPtr]::Zero) { return $null }
+
+        $srcBmp = [System.Drawing.Image]::FromHbitmap($hBitmap)
+        [Win32]::DeleteObject($hBitmap) | Out-Null
+
+        $targetH = [int]($h * ($TargetWidth / $w))
+        if ($targetH -le 0) { $targetH = 360 }
+
+        $thumb = New-Object System.Drawing.Bitmap $TargetWidth, $targetH
+        $gfx = [System.Drawing.Graphics]::FromImage($thumb)
+        $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::Bilinear
+        $gfx.DrawImage($srcBmp, 0, 0, $TargetWidth, $targetH)
+        $gfx.Dispose()
+        $srcBmp.Dispose()
+
+        $encoder = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.FormatDescription -eq "JPEG" }
+        $encoderParams = New-Object System.Drawing.Imaging.EncoderParameters 1
+        $encoderParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality, $Quality)
+
+        $ms = New-Object System.IO.MemoryStream
+        $thumb.Save($ms, $encoder, $encoderParams)
+        $thumb.Dispose()
+        $bytes = $ms.ToArray()
+        $ms.Dispose()
+
+        $base64 = [Convert]::ToBase64String($bytes)
+        return "data:image/jpeg;base64,$base64"
+    } catch {
+        Write-Warning "[ScreenCap] Gagal capture GDI: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Capture-CameraSnapshot {
+    # 1. Coba tangkap layar dengan GDI BitBlt (tampilan ujian + feed kamera siswa)
+    $cam = Capture-CleanScreenJpeg -TargetWidth 720 -Quality 60
+    if ($cam) {
+        Write-Host "[Camera] Berhasil mengambil foto kamera/layar siswa ($([int]($cam.Length / 1024)) KB)." -ForegroundColor Green
+        return $cam
+    }
+
+    # 2. Fallback jika GDI gagal: periksa folder Temp ExamCam
+    try {
         $tempPics = Get-ChildItem -Path $env:TEMP -Filter "*Webcam*" -ErrorAction SilentlyContinue |
                     Where-Object { (Get-Date) - $_.LastWriteTime -lt (New-TimeSpan -Minutes 15) } |
                     Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -658,66 +764,15 @@ function Capture-CameraSnapshot {
             $base64 = [Convert]::ToBase64String($bytes)
             return "data:image/png;base64,$base64"
         }
+    } catch {}
 
-        # 2. Ambil tangkapan layar jernih area layar siswa (termasuk feed webcam yang sedang aktif)
-        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-        $gfx = [System.Drawing.Graphics]::FromImage($bmp)
-        $gfx.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
-        $gfx.Dispose()
-
-        # Resize ke 640x360 agar tajam untuk melihat wajah siswa
-        $targetWidth = 640
-        $targetHeight = 360
-        $thumb = New-Object System.Drawing.Bitmap $targetWidth, $targetHeight
-        $thumbGfx = [System.Drawing.Graphics]::FromImage($thumb)
-        $thumbGfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
-        $thumbGfx.DrawImage($bmp, 0, 0, $targetWidth, $targetHeight)
-        $thumbGfx.Dispose()
-        $bmp.Dispose()
-
-        $ms = New-Object System.IO.MemoryStream
-        $thumb.Save($ms, [System.Drawing.Imaging.ImageFormat]::Jpeg)
-        $thumb.Dispose()
-        $bytes = $ms.ToArray()
-        $ms.Dispose()
-
-        $base64 = [Convert]::ToBase64String($bytes)
-        return "data:image/jpeg;base64,$base64"
-    } catch {
-        return $null
-    }
+    return $null
 }
 
 function Take-ScreenThumbnail {
-    try {
-        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-        $gfx = [System.Drawing.Graphics]::FromImage($bmp)
-        $gfx.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
-        $gfx.Dispose()
-
-        # Resize ke thumbnail 480x270 untuk transmisi cepat di jaringan lab
-        $targetWidth = 480
-        $targetHeight = 270
-        $thumb = New-Object System.Drawing.Bitmap $targetWidth, $targetHeight
-        $thumbGfx = [System.Drawing.Graphics]::FromImage($thumb)
-        $thumbGfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::Bilinear
-        $thumbGfx.DrawImage($bmp, 0, 0, $targetWidth, $targetHeight)
-        $thumbGfx.Dispose()
-        $bmp.Dispose()
-
-        $ms = New-Object System.IO.MemoryStream
-        $thumb.Save($ms, [System.Drawing.Imaging.ImageFormat]::Jpeg)
-        $thumb.Dispose()
-        $bytes = $ms.ToArray()
-        $ms.Dispose()
-
-        $base64 = [Convert]::ToBase64String($bytes)
-        return "data:image/jpeg;base64,$base64"
-    } catch {
-        return $null
-    }
+    # Ambil screenshot jernih & ringan via Win32 GDI
+    $thumb = Capture-CleanScreenJpeg -TargetWidth 480 -Quality 50
+    return $thumb
 }
 
 # ----------------- EKSEKUSI TUGAS DARI SERVER -----------------
@@ -876,7 +931,7 @@ while ($true) {
                                       -Method Post `
                                       -Body $jsonPayload `
                                       -ContentType 'application/json' `
-                                      -TimeoutSec 3 `
+                                      -TimeoutSec 15 `
                                       -ErrorAction Stop
 
         Write-Host "[Agent] $(Get-Date -Format 'HH:mm:ss') -> Berhasil terhubung ke server ($($Script:ActiveServerUrl)) | Status: ONLINE" -ForegroundColor Green
@@ -886,9 +941,42 @@ while ($true) {
 
         # Eksekusi tugas dari server jika ada
         if ($response -and $response.tasks -and $response.tasks.Count -gt 0) {
+            $immediateResults = @()
             foreach ($t in $response.tasks) {
                 $taskRes = Handle-Task -task $t
-                $pendingResults += $taskRes
+                $immediateResults += $taskRes
+            }
+
+            # Kirim hasil eksekusi tugas (termasuk foto kamera / screenshot) SECARA INSTAN ke server
+            if ($immediateResults.Count -gt 0) {
+                Write-Host "[Agent] Mengirim $( $immediateResults.Count ) hasil tugas langsung ke server..." -ForegroundColor Cyan
+                try {
+                    $quickPayload = @{
+                        clientId = $Script:ClientId
+                        hostname = $env:COMPUTERNAME
+                        ip = Get-LocalIP
+                        mac = Get-LocalMAC
+                        username = $currentUser
+                        exambrowserRunning = ($examProc -ne $null)
+                        exambrowserPid = if ($examProc) { $examProc.Id } else { $null }
+                        webcamAvailable = $camInfo.Available
+                        webcamName = $camInfo.Name
+                        osVersion = [System.Environment]::OSVersion.VersionString
+                        uptime = [int]((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).TotalMinutes
+                        results = $immediateResults
+                    } | ConvertTo-Json -Depth 5 -Compress
+
+                    Invoke-RestMethod -Uri "$($Script:ActiveServerUrl)/api/agent/heartbeat" `
+                                      -Method Post `
+                                      -Body $quickPayload `
+                                      -ContentType 'application/json' `
+                                      -TimeoutSec 15 `
+                                      -ErrorAction SilentlyContinue | Out-Null
+                    Write-Host "[Agent] Hasil tugas berhasil terkirim ke server secara instan!" -ForegroundColor Green
+                } catch {
+                    # Jika transmisi instan terkendala, simpan ke antrian pending berikutnya
+                    $pendingResults += $immediateResults
+                }
             }
         }
 

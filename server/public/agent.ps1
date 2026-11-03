@@ -278,13 +278,18 @@ function Discover-Server {
 
     # 1. Jika ada IP yang didefinisikan secara khusus (selain auto)
     if ($Script:Config.serverIp -ne "auto" -and -not [string]::IsNullOrWhiteSpace($Script:Config.serverIp)) {
-        try {
-            $testUrl = "http://$($Script:Config.serverIp):$($Script:Config.serverPort)/api/info"
-            $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
-            if ($res -and $res.serverIp) {
-                return "http://$($Script:Config.serverIp):$($Script:Config.serverPort)"
-            }
-        } catch {}
+        for ($retry = 0; $retry -lt 3; $retry++) {
+            try {
+                $testUrl = "http://$($Script:Config.serverIp):$($Script:Config.serverPort)/api/info"
+                $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 3 -ErrorAction SilentlyContinue
+                if ($res -and $res.serverIp) {
+                    return "http://$($Script:Config.serverIp):$($Script:Config.serverPort)"
+                }
+            } catch {}
+            Start-Sleep -Milliseconds 400
+        }
+        # Tetap return IP konfigurasi sebagai prioritas utama
+        return "http://$($Script:Config.serverIp):$($Script:Config.serverPort)"
     }
 
     # 2. Coba temukan lewat Hostname Komputer Server (TETAP walaupun IP berubah)
@@ -935,13 +940,44 @@ $Script:ActiveServerUrl = $serverUrl
 $pendingResults = @()
 $Script:IsLiveStreaming = $false
 
+$Script:ConsecutiveFailures = 0
+$Script:CachedCamInfo = $null
+$Script:LastCamCheck = $null
+$Script:CachedBootTime = $null
+$Script:CachedUser = $null
+
 while ($true) {
     try {
-        # Cek status proses ExamBrowser
+        # Cek status proses ExamBrowser (ringan & instan)
         $examProc = Get-Process -Name 'ExamBrowser', 'runningexam' -ErrorAction SilentlyContinue | Select-Object -First 1
-        $camInfo = Get-WebcamInfo
-        $currentUser = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).UserName
-        if (-not $currentUser) { $currentUser = $env:USERNAME }
+
+        # Cache info webcam setiap 60 detik (mencegah lag WMI pada PC dengan spek rendah)
+        if (-not $Script:LastCamCheck -or ((Get-Date) - $Script:LastCamCheck).TotalSeconds -gt 60) {
+            $Script:CachedCamInfo = Get-WebcamInfo
+            $Script:LastCamCheck = Get-Date
+        }
+        $camInfo = $Script:CachedCamInfo
+
+        # Cache username & boot time
+        if (-not $Script:CachedUser) {
+            $Script:CachedUser = $env:USERNAME
+            try {
+                $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+                if ($cs.UserName) { $Script:CachedUser = $cs.UserName }
+            } catch {}
+        }
+        $currentUser = $Script:CachedUser
+
+        $uptimeMin = 0
+        try {
+            if (-not $Script:CachedBootTime) {
+                $osObj = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+                if ($osObj.LastBootUpTime) { $Script:CachedBootTime = $osObj.LastBootUpTime }
+            }
+            if ($Script:CachedBootTime) {
+                $uptimeMin = [int]((Get-Date) - $Script:CachedBootTime).TotalMinutes
+            }
+        } catch {}
 
         # Payload Heartbeat
         $heartbeat = @{
@@ -955,7 +991,7 @@ while ($true) {
             webcamAvailable = $camInfo.Available
             webcamName = $camInfo.Name
             osVersion = [System.Environment]::OSVersion.VersionString
-            uptime = [int]((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).TotalMinutes
+            uptime = $uptimeMin
             results = $pendingResults
         }
 
@@ -966,9 +1002,10 @@ while ($true) {
                                       -Method Post `
                                       -Body $jsonPayload `
                                       -ContentType 'application/json' `
-                                      -TimeoutSec 15 `
+                                      -TimeoutSec 10 `
                                       -ErrorAction Stop
 
+        $Script:ConsecutiveFailures = 0
         Write-Host "[Agent] $(Get-Date -Format 'HH:mm:ss') -> Berhasil terhubung ke server ($($Script:ActiveServerUrl)) | Status: ONLINE" -ForegroundColor Green
 
         # Kosongkan hasil yang sudah terkirim
@@ -997,7 +1034,7 @@ while ($true) {
                         webcamAvailable = $camInfo.Available
                         webcamName = $camInfo.Name
                         osVersion = [System.Environment]::OSVersion.VersionString
-                        uptime = [int]((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).TotalMinutes
+                        uptime = $uptimeMin
                         results = $immediateResults
                     } | ConvertTo-Json -Depth 5 -Compress
 
@@ -1040,10 +1077,17 @@ while ($true) {
         }
 
     } catch {
-        # Jika gagal menghubungi server, coba temukan kembali server
-        Write-Warning "[Agent] Terputus dari server ($($Script:ActiveServerUrl)): $($_.Exception.Message)"
-        Start-Sleep -Seconds 3
-        $Script:ActiveServerUrl = Discover-Server
+        $Script:ConsecutiveFailures++
+        Write-Warning "[Agent] Terputus dari server ($($Script:ActiveServerUrl)): $($_.Exception.Message) (Gagal: $($Script:ConsecutiveFailures))"
+        Start-Sleep -Seconds 1
+
+        # Hanya lakukan scan ulang jika gagal lebih dari 4 kali berturut-turut DAN serverIp diset auto
+        if ($Script:ConsecutiveFailures -gt 4 -and ($Script:Config.serverIp -eq "auto" -or -not $Script:Config.serverIp)) {
+            $Script:ActiveServerUrl = Discover-Server
+        } elseif ($Script:Config.serverIp -and $Script:Config.serverIp -ne "auto") {
+            # Pastikan selalu mengarah ke IP yang dikonfigurasikan
+            $Script:ActiveServerUrl = "http://$($Script:Config.serverIp):$($Script:Config.serverPort)"
+        }
     }
 
     $sleepMs = if ($Script:IsLiveStreaming) { 400 } else { [int]($Script:Config.pollIntervalSeconds * 1000) }

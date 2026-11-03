@@ -205,6 +205,25 @@ function Discover-Server {
         }
     } catch {}
 
+    # 4. Pemindaian Cepat Subnet Lokal (jika IP server proktor berubah karena DHCP)
+    $myIP = Get-LocalIP
+    if ($myIP -match '^(\d+\.\d+\.\d+)\.\d+$') {
+        $subnet = $matches[1]
+        Write-Host "[Discovery] Memindai subnet $subnet.* mencari server proktor aktif..." -ForegroundColor Cyan
+        $probeList = @(85, 200, 100, 1, 2, 50, 10, 250, 80, 81, 82, 83, 84, 86, 87, 88, 89, 90)
+        foreach ($h in $probeList) {
+            $testTarget = "$subnet.$h"
+            try {
+                $testUrl = "http://$testTarget`:$($Script:Config.serverPort)/api/info"
+                $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
+                if ($res -and $res.serverIp) {
+                    Write-Host "[Discovery] Server otomatis ditemukan di $testTarget!" -ForegroundColor Green
+                    return "http://$testTarget`:$($Script:Config.serverPort)"
+                }
+            } catch {}
+        }
+    }
+
     $fallback = "http://$($Script:Config.fallbackServerIp):$($Script:Config.serverPort)"
     Write-Host "[Discovery] Tidak menerima UDP beacon, mencoba fallback ke $fallback..." -ForegroundColor Yellow
     return $fallback

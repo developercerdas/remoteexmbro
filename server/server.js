@@ -264,6 +264,10 @@ app.post('/api/agent/heartbeat', (req, res) => {
         clientData.latestScreenshot = r.screenshot;
         clientData.screenshotTime = new Date().toLocaleTimeString('id-ID');
       }
+      if (r.cameraImage) {
+        clientData.latestCameraImage = r.cameraImage;
+        clientData.cameraTime = new Date().toLocaleTimeString('id-ID');
+      }
     });
   }
 
@@ -354,6 +358,7 @@ app.post('/api/command', (req, res) => {
     restart: 'Restart',
     cancel_shutdown: 'Batalkan Shutdown',
     screenshot: 'Ambil Tangkapan Layar',
+    camera_snapshot: 'Ambil Foto Kamera Siswa',
     exec_custom: 'Jalankan Skrip Kustom'
   };
 

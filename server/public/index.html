@@ -143,6 +143,12 @@
             <span>Screenshot Layar</span>
           </button>
 
+          <!-- Pantau Kamera Semua -->
+          <button id="btnMassCamera" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-medium text-sm transition active:scale-95">
+            <i class="ph-bold ph-webcam text-base"></i>
+            <span>Pantau Kamera</span>
+          </button>
+
           <!-- Menu Dropdown Tambahan -->
           <div class="relative inline-block text-left" id="moreDropdownContainer">
             <button id="btnMoreMenu" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-600/50">
@@ -263,6 +269,34 @@
       <div class="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
         <span id="modalScreenshotTime">Diambil pada: -</span>
         <button class="modal-close px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PREVIEW WEBCAM SISWA -->
+  <div id="modalCamera" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl">
+      <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-webcam text-purple-400 text-lg"></i>
+          <h3 id="modalCameraTitle" class="font-semibold text-white">Pantauan Kamera Siswa</h3>
+        </div>
+        <button class="modal-close text-slate-400 hover:text-white text-xl">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+      <div class="p-4 bg-black flex flex-col items-center justify-center min-h-[300px]">
+        <img id="modalCameraImg" src="" alt="Kamera Siswa" class="max-h-[60vh] rounded-xl border border-slate-800 object-contain shadow-2xl">
+        <p id="modalCameraInfo" class="text-xs text-slate-400 mt-2 font-mono">Memuat gambar kamera...</p>
+      </div>
+      <div class="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <span id="modalCameraTime">Waktu Pengambilan: -</span>
+        <div class="flex items-center gap-2">
+          <button id="btnRefreshCamera" class="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-arrows-clockwise"></i> Ambil Foto Baru
+          </button>
+          <button class="modal-close px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">Tutup</button>
+        </div>
       </div>
     </div>
   </div>

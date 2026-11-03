@@ -38,6 +38,18 @@ function connectWebSocket() {
       } else if (msg.type === 'CLIENTS_UPDATE') {
         state.clients = msg.data;
         renderAll();
+        if (activeCameraClientId) {
+          const currentCamClient = state.clients.find(c => c.clientId === activeCameraClientId);
+          if (currentCamClient && currentCamClient.latestCameraImage) {
+            const imgEl = document.getElementById('modalCameraImg');
+            if (imgEl && imgEl.src !== currentCamClient.latestCameraImage) {
+              imgEl.src = currentCamClient.latestCameraImage;
+              imgEl.classList.remove('hidden');
+              document.getElementById('modalCameraInfo').textContent = `Perangkat Kamera: ${currentCamClient.webcamName || 'Webcam Aktif'}`;
+              document.getElementById('modalCameraTime').textContent = `Waktu: ${currentCamClient.cameraTime || '-'}`;
+            }
+          }
+        }
       } else if (msg.type === 'LOG_ENTRY') {
         state.logs.unshift(msg.data);
         if (state.logs.length > 200) state.logs.pop();
@@ -291,6 +303,11 @@ function renderClients() {
             <i class="ph-bold ph-camera text-sm"></i>
           </button>
 
+          <!-- Pantau Kamera -->
+          <button data-action="camera" data-client-id="${c.clientId}" title="Pantau Kamera Siswa" class="btn-card-action p-1.5 rounded-lg bg-purple-900/30 hover:bg-purple-900/50 text-purple-300 border border-purple-800/40 text-xs transition">
+            <i class="ph-bold ph-webcam text-sm"></i>
+          </button>
+
           <!-- Kill Force -->
           <button data-action="kill" data-client-id="${c.clientId}" title="Force Kill ExamBrowser" class="btn-card-action p-1.5 rounded-lg bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 text-xs transition">
             <i class="ph-bold ph-x text-sm"></i>
@@ -328,6 +345,11 @@ function attachCardEvents() {
       switch (action) {
         case 'wake':
           wakePCs([clientId]);
+          break;
+        case 'camera':
+          const cl = state.clients.find((c) => c.clientId === clientId);
+          sendCommand('camera_snapshot', [clientId]);
+          if (cl) openCameraModal(cl);
           break;
         case 'launch':
           sendCommand('launch_standard', [clientId]);
@@ -415,6 +437,28 @@ function openScreenshotModal(client) {
   document.getElementById('modalScreenshotImg').src = client.latestScreenshot;
   document.getElementById('modalScreenshotTime').textContent = `Diambil pada: ${client.screenshotTime || '-'}`;
   document.getElementById('modalScreenshot').classList.remove('hidden');
+}
+
+let activeCameraClientId = null;
+
+function openCameraModal(client) {
+  activeCameraClientId = client.clientId;
+  document.getElementById('modalCameraTitle').textContent = `Pantauan Kamera: ${client.hostname} (${client.ip})`;
+  const imgEl = document.getElementById('modalCameraImg');
+  const infoEl = document.getElementById('modalCameraInfo');
+
+  if (client.latestCameraImage) {
+    imgEl.src = client.latestCameraImage;
+    imgEl.classList.remove('hidden');
+    infoEl.textContent = `Perangkat Kamera: ${client.webcamName || 'Webcam Aktif'}`;
+    document.getElementById('modalCameraTime').textContent = `Waktu: ${client.cameraTime || '-'}`;
+  } else {
+    imgEl.src = '';
+    imgEl.classList.add('hidden');
+    infoEl.textContent = 'Sedang meminta foto kamera dari PC siswa, mohon tunggu...';
+    document.getElementById('modalCameraTime').textContent = 'Meminta gambar...';
+  }
+  document.getElementById('modalCamera').classList.remove('hidden');
 }
 
 function openPowerModal(type) {
@@ -521,6 +565,22 @@ document.addEventListener('DOMContentLoaded', () => {
     sendCommand('screenshot');
   });
 
+  // Mass Camera
+  document.getElementById('btnMassCamera').addEventListener('click', () => {
+    const count = state.selectedIds.size || state.clients.filter((c) => c.online).length;
+    if (confirm(`Ambil foto kamera dari ${count} PC siswa?`)) {
+      sendCommand('camera_snapshot');
+    }
+  });
+
+  // Refresh Camera modal button
+  document.getElementById('btnRefreshCamera').addEventListener('click', () => {
+    if (activeCameraClientId) {
+      sendCommand('camera_snapshot', [activeCameraClientId]);
+      document.getElementById('modalCameraInfo').textContent = 'Sedang mengambil foto kamera terbaru...';
+    }
+  });
+
   // Dropdown Menu Toggle
   const btnMoreMenu = document.getElementById('btnMoreMenu');
   const moreDropdown = document.getElementById('moreMenuDropdown');
@@ -567,9 +627,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal Close buttons
   document.querySelectorAll('.modal-close').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#modalScreenshot, #modalPower, #modalCustomScript').forEach((m) => {
+      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript').forEach((m) => {
         m.classList.add('hidden');
       });
+      activeCameraClientId = null;
     });
   });
 

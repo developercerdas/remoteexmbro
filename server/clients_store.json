@@ -6,29 +6,13 @@
     "ip": "10.10.11.67",
     "mac": "EC-9A-0C-1E-95-6D",
     "username": "WIN-0FG5VC2D0L2\\Administrator",
-    "exambrowserRunning": false,
-    "exambrowserPid": null,
+    "exambrowserRunning": true,
+    "exambrowserPid": 3684,
     "webcamAvailable": true,
     "webcamName": "HP Integrated Webcam",
     "osVersion": "Microsoft Windows NT 10.0.19045.0",
-    "uptime": 11,
-    "lastSeen": 1793672397071,
+    "uptime": 22,
+    "lastSeen": 1793673025433,
     "online": true
-  },
-  {
-    "clientId": "PC_08606E9171F5",
-    "processId": "WIN-A34NP8S7ADV",
-    "hostname": "WIN-A34NP8S7ADV",
-    "ip": "10.10.11.85",
-    "mac": "08-60-6E-91-71-F5",
-    "username": "WIN-A34NP8S7ADV\\Administrator",
-    "exambrowserRunning": false,
-    "exambrowserPid": null,
-    "webcamAvailable": false,
-    "webcamName": "Tidak Terdeteksi",
-    "osVersion": "Microsoft Windows NT 10.0.19045.0",
-    "uptime": 147,
-    "lastSeen": 1793672307102,
-    "online": false
   }
 ]

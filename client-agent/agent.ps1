@@ -563,66 +563,129 @@ function Start-ExamBrowserOtomasi {
 }
 
 function Close-ExamBrowserGraceful {
-    $proc = Get-Process -Name 'ExamBrowser', 'runningexam' -ErrorAction SilentlyContinue |
-            Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-
-    if (-not $proc) {
-        # Coba cek proses tanpa window handle
-        $anyProc = Get-Process -Name 'ExamBrowser', 'runningexam' -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $anyProc) {
-            return @{ Success = $true; Message = "ExamBrowser tidak sedang berjalan." }
-        }
+    $procNames = @('elekbrowser', 'runningexam', 'ExamBrowser', 'ExamCam', 'ExamServices')
+    $existing = Get-Process -Name $procNames -ErrorAction SilentlyContinue
+    if (-not $existing) {
+        return @{ Success = $true; Message = "ExamBrowser tidak sedang berjalan." }
     }
 
     try {
-        if ($proc -and $proc.MainWindowHandle -ne 0) {
-            [Win32]::ShowWindow($proc.MainWindowHandle, 9) | Out-Null # SW_RESTORE
-            [Win32]::SetForegroundWindow($proc.MainWindowHandle) | Out-Null
-            Start-Sleep -Milliseconds 400
+        # 1. Fokuskan jendela elekbrowser atau runningexam
+        $topProc = $existing | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+        if ($topProc) {
+            [Win32]::ShowWindow($topProc.MainWindowHandle, 9) | Out-Null
+            [Win32]::SetForegroundWindow($topProc.MainWindowHandle) | Out-Null
+            Start-Sleep -Milliseconds 300
         }
 
-        # Kirim kombinasi tombol Ctrl + C + B
-        # VK_CONTROL = 0x11, 'C' = 0x43, 'B' = 0x42
+        # 2. Kirim kombinasi tombol resmi Ctrl + C + B
         $keys = @([byte]0x11, [byte]0x43, [byte]0x42)
-
-        # Tekan tombol (Key Down)
         foreach ($k in $keys) {
             [Win32]::keybd_event($k, 0, 0, 0)
             Start-Sleep -Milliseconds 80
         }
-
-        Start-Sleep -Milliseconds 400
-
-        # Lepaskan tombol dalam urutan terbalik (Key Up)
+        Start-Sleep -Milliseconds 300
         [array]::Reverse($keys)
         foreach ($k in $keys) {
             [Win32]::keybd_event($k, 0, [Win32]::KEYEVENTF_KEYUP, 0)
             Start-Sleep -Milliseconds 40
         }
 
+        # Tunggu respon dialog keluar
+        Start-Sleep -Milliseconds 800
+
+        # Jika muncul form password (default 12345), otomatis kirim 12345 + Enter
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+        [System.Windows.Forms.SendKeys]::SendWait("12345{ENTER}")
+
+        Start-Sleep -Seconds 1
+
+        # 3. Hentikan sisa proses ExamBrowser & ExamCam agar komputer bersih
+        $remaining = Get-Process -Name $procNames -ErrorAction SilentlyContinue
+        if ($remaining) {
+            $remaining | Stop-Process -Force -ErrorAction SilentlyContinue
+        }
+
+        # 4. Pulihkan Windows Explorer Shell (Taskbar Desktop) jika tadi dimatikan oleh ExamBrowser
+        $explorer = Get-Process -Name 'explorer' -ErrorAction SilentlyContinue
+        if (-not $explorer) {
+            Start-Process -FilePath "explorer.exe"
+            Write-Host "[Otomasi] Windows Explorer Desktop dipulihkan kembali." -ForegroundColor Green
+        }
+
         return @{
             Success = $true
-            Message = "Sinyal tutup aman (Ctrl + C + B) berhasil dikirim ke ExamBrowser."
+            Message = "ExamBrowser berhasil ditutup dengan aman dan tampilan desktop dipulihkan."
         }
     } catch {
-        return @{
-            Success = $false
-            Message = "Gagal mengirim kombinasi tombol: $($_.Exception.Message)"
+        # Fallback force kill
+        Stop-Process -Name $procNames -Force -ErrorAction SilentlyContinue
+        if (-not (Get-Process -Name 'explorer' -ErrorAction SilentlyContinue)) {
+            Start-Process -FilePath "explorer.exe"
         }
+        return @{ Success = $true; Message = "ExamBrowser ditutup paksa dan Explorer dipulihkan." }
     }
 }
 
 function Stop-ExamBrowserForce {
+    $procNames = @('elekbrowser', 'runningexam', 'ExamBrowser', 'ExamCam', 'ExamServices')
     try {
-        $procs = Get-Process -Name 'ExamBrowser', 'runningexam' -ErrorAction SilentlyContinue
+        $procs = Get-Process -Name $procNames -ErrorAction SilentlyContinue
         if (-not $procs) {
             return @{ Success = $true; Message = "ExamBrowser tidak sedang berjalan." }
         }
         $count = $procs.Count
         $procs | Stop-Process -Force -ErrorAction SilentlyContinue
-        return @{ Success = $true; Message = "Berhasil mematikan paksa $count proses ExamBrowser." }
+
+        if (-not (Get-Process -Name 'explorer' -ErrorAction SilentlyContinue)) {
+            Start-Process -FilePath "explorer.exe"
+        }
+        return @{ Success = $true; Message = "Berhasil mematikan paksa $count proses ExamBrowser dan memulihkan Explorer." }
     } catch {
         return @{ Success = $false; Message = "Gagal mematikan proses: $($_.Exception.Message)" }
+    }
+}
+
+function Capture-CameraSnapshot {
+    try {
+        # 1. Cek jika ExamCam menyimpan foto di folder Temp
+        $tempPics = Get-ChildItem -Path $env:TEMP -Filter "*Webcam*" -ErrorAction SilentlyContinue |
+                    Where-Object { (Get-Date) - $_.LastWriteTime -lt (New-TimeSpan -Minutes 15) } |
+                    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+        if ($tempPics) {
+            $bytes = [System.IO.File]::ReadAllBytes($tempPics.FullName)
+            $base64 = [Convert]::ToBase64String($bytes)
+            return "data:image/png;base64,$base64"
+        }
+
+        # 2. Ambil tangkapan layar jernih area layar siswa (termasuk feed webcam yang sedang aktif)
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+        $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+        $gfx.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+        $gfx.Dispose()
+
+        # Resize ke 640x360 agar tajam untuk melihat wajah siswa
+        $targetWidth = 640
+        $targetHeight = 360
+        $thumb = New-Object System.Drawing.Bitmap $targetWidth, $targetHeight
+        $thumbGfx = [System.Drawing.Graphics]::FromImage($thumb)
+        $thumbGfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
+        $thumbGfx.DrawImage($bmp, 0, 0, $targetWidth, $targetHeight)
+        $thumbGfx.Dispose()
+        $bmp.Dispose()
+
+        $ms = New-Object System.IO.MemoryStream
+        $thumb.Save($ms, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+        $thumb.Dispose()
+        $bytes = $ms.ToArray()
+        $ms.Dispose()
+
+        $base64 = [Convert]::ToBase64String($bytes)
+        return "data:image/jpeg;base64,$base64"
+    } catch {
+        return $null
     }
 }
 
@@ -705,6 +768,17 @@ function Handle-Task {
             } else {
                 $result.success = $false
                 $result.message = "Gagal mengambil screenshot."
+            }
+        }
+        "camera_snapshot" {
+            $camImg = Capture-CameraSnapshot
+            if ($camImg) {
+                $result.success = $true
+                $result.message = "Foto kamera siswa berhasil diambil."
+                $result.cameraImage = $camImg
+            } else {
+                $result.success = $false
+                $result.message = "Kamera tidak aktif atau gagal mengambil gambar."
             }
         }
         "shutdown" {

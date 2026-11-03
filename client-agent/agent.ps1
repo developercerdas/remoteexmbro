@@ -192,6 +192,19 @@ function Discover-Server {
         # Timeout atau port bentrok
     }
 
+    # 3. Coba periksa apakah Default Gateway bertindak sebagai server
+    try {
+        $gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1).NextHop
+        if ($gw -and $gw -ne '0.0.0.0') {
+            $testUrl = "http://$gw`:$($Script:Config.serverPort)/api/info"
+            $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
+            if ($res -and $res.serverIp) {
+                Write-Host "[Discovery] Server ditemukan di Default Gateway ($gw)!" -ForegroundColor Green
+                return "http://$gw`:$($Script:Config.serverPort)"
+            }
+        }
+    } catch {}
+
     $fallback = "http://$($Script:Config.fallbackServerIp):$($Script:Config.serverPort)"
     Write-Host "[Discovery] Tidak menerima UDP beacon, mencoba fallback ke $fallback..." -ForegroundColor Yellow
     return $fallback

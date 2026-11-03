@@ -1,0 +1,40 @@
+/* RemoteExambro Dashboard Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+.client-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.client-card:hover {
+  transform: translateY(-2px);
+}
+
+.filter-tab.active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.pulse-indicator {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}

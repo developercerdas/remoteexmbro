@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RemoteExambro - Master Controller & Proctor Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons CDN -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold text-xl">
+          <i class="ph-bold ph-monitor-play"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight text-white">RemoteExambro</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Proctor v1.0</span>
+          </div>
+          <p class="text-xs text-slate-400">Otomasi Remote ExamBrowser Client (ANBK / CBT / Ujian)</p>
+        </div>
+      </div>
+
+      <!-- SERVER STATUS BADGE -->
+      <div class="flex items-center gap-4">
+        <div class="hidden sm:flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-slate-400">Server LAN:</span>
+          <span id="serverIpBadge" class="font-mono text-slate-200 font-semibold">Memuat...</span>
+        </div>
+        
+        <button id="btnRefresh" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+          <i class="ph-bold ph-arrows-clockwise text-base"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6">
+
+    <!-- METRICS & STATS BAR -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-slate-800/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Klien</p>
+          <p id="statTotal" class="text-2xl font-bold text-white mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl">
+          <i class="ph-bold ph-desktop"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Klien Online</p>
+          <p id="statOnline" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl">
+          <i class="ph-bold ph-wifi-high"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">ExamBro Aktif</p>
+          <p id="statExamRunning" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl">
+          <i class="ph-bold ph-play-circle"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Kamera Siap</p>
+          <p id="statWebcam" class="text-2xl font-bold text-purple-400 mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-xl">
+          <i class="ph-bold ph-webcam"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTION CONTROL BAR -->
+    <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-xl">
+      <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        
+        <!-- MASS COMMAND BUTTONS -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Buka Standar -->
+          <button id="btnMassLaunchStandard" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/20 active:scale-95">
+            <i class="ph-bold ph-play text-base"></i>
+            <span>Buka & Auto-RUN</span>
+          </button>
+
+          <!-- Buka Webcam -->
+          <button id="btnMassLaunchWebcam" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition shadow-lg shadow-indigo-600/20 active:scale-95">
+            <i class="ph-bold ph-webcam text-base"></i>
+            <span>Buka + Izin Webcam</span>
+          </button>
+
+          <!-- Tutup Aman (Ctrl+C+B) -->
+          <button id="btnMassCloseGraceful" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-sm transition shadow-lg shadow-amber-600/20 active:scale-95">
+            <i class="ph-bold ph-stop-circle text-base"></i>
+            <span>Tutup Aman (Ctrl+C+B)</span>
+          </button>
+
+          <!-- Force Kill -->
+          <button id="btnMassKill" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium text-sm transition active:scale-95">
+            <i class="ph-bold ph-x-circle text-base"></i>
+            <span>Force Kill</span>
+          </button>
+
+          <!-- Screenshot Semua -->
+          <button id="btnMassScreenshot" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium text-sm transition active:scale-95">
+            <i class="ph-bold ph-camera text-base"></i>
+            <span>Screenshot Layar</span>
+          </button>
+
+          <!-- Menu Dropdown Tambahan -->
+          <div class="relative inline-block text-left" id="moreDropdownContainer">
+            <button id="btnMoreMenu" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-600/50">
+              <i class="ph-bold ph-dots-three-vertical"></i>
+              <span>Lainnya</span>
+            </button>
+            <div id="moreMenuDropdown" class="hidden absolute left-0 mt-2 w-56 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl z-30 py-1.5">
+              <button id="btnMenuWakeOnLan" class="w-full text-left px-4 py-2 text-sm text-yellow-300 hover:bg-yellow-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-lightning text-base"></i> Hidupkan PC (Wake-on-LAN)
+              </button>
+              <button id="btnMenuShutdown" class="w-full text-left px-4 py-2 text-sm text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-power text-base"></i> Shutdown PC Lab...
+              </button>
+              <button id="btnMenuRestart" class="w-full text-left px-4 py-2 text-sm text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-arrows-clockwise text-base"></i> Restart PC Lab...
+              </button>
+              <button id="btnMenuCancelShutdown" class="w-full text-left px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-prohibit text-base"></i> Batalkan Shutdown
+              </button>
+              <div class="border-t border-slate-700 my-1"></div>
+              <button id="btnMenuCustomScript" class="w-full text-left px-4 py-2 text-sm text-cyan-300 hover:bg-cyan-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-code text-base"></i> Eksekusi Skrip PowerShell...
+              </button>
+              <button id="btnClearOffline" class="w-full text-left px-4 py-2 text-sm text-slate-400 hover:bg-slate-700 flex items-center gap-2">
+                <i class="ph-bold ph-trash text-base"></i> Hapus Klien Offline
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEARCH & SELECTION FILTER -->
+        <div class="flex items-center gap-3">
+          <div class="relative w-full sm:w-64">
+            <i class="ph-bold ph-magnifying-glass absolute left-3 top-2.5 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="Cari PC / IP..." class="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+          </div>
+          
+          <button id="btnSelectAll" class="text-xs px-3 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 border border-slate-600 whitespace-nowrap">
+            Pilih Semua
+          </button>
+        </div>
+
+      </div>
+
+      <!-- SELECTION STATUS BANNER -->
+      <div id="selectionBanner" class="hidden mt-3 pt-3 border-t border-slate-700/80 flex items-center justify-between text-xs text-blue-300">
+        <div class="flex items-center gap-2">
+          <i class="ph-fill ph-check-circle"></i>
+          <span><strong id="selectedCount">0</strong> klien dipilih. Perintah massal di atas akan berlaku hanya pada klien yang dicentang.</span>
+        </div>
+        <button id="btnDeselectAll" class="text-slate-400 hover:text-white underline">Batalkan Pilihan</button>
+      </div>
+    </div>
+
+    <!-- CLIENT GRID -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+          <span>Daftar Komputer Klien Lab</span>
+          <span id="badgeFilteredCount" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">0</span>
+        </h2>
+        <div class="flex items-center gap-1.5 text-xs">
+          <button data-filter="all" class="filter-tab active px-2.5 py-1 rounded-md bg-blue-600 text-white font-medium">Semua</button>
+          <button data-filter="online" class="filter-tab px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 hover:text-white">Online</button>
+          <button data-filter="running" class="filter-tab px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 hover:text-white">ExamBro Aktif</button>
+          <button data-filter="offline" class="filter-tab px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 hover:text-white">Offline</button>
+        </div>
+      </div>
+
+      <!-- GRID CONTAINER -->
+      <div id="clientGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div id="emptyState" class="hidden py-16 text-center border-2 border-dashed border-slate-800 rounded-2xl">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-3xl">
+          <i class="ph-bold ph-desktop-tower"></i>
+        </div>
+        <h3 class="text-base font-medium text-slate-300">Belum Ada Klien Terhubung</h3>
+        <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+          Jalankan skrip agen di komputer klien lab melalui flashdisk atau shared folder untuk mulai mengontrolnya.
+        </p>
+      </div>
+    </div>
+
+    <!-- LIVE LOG CONSOLE -->
+    <div class="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+      <div class="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <i class="ph-bold ph-terminal-window text-base text-blue-400"></i>
+          <span>Log Eksekusi & Aktivitas Real-Time</span>
+        </div>
+        <button id="btnClearLogs" class="text-xs text-slate-500 hover:text-slate-300">Bersihkan Log</button>
+      </div>
+      <div id="logConsole" class="p-3 text-xs font-mono space-y-1.5 max-h-56 overflow-y-auto">
+        <!-- Log lines rendered here -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: PREVIEW SCREENSHOT -->
+  <div id="modalScreenshot" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl">
+      <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-camera text-blue-400 text-lg"></i>
+          <h3 id="modalScreenshotTitle" class="font-semibold text-white">Tangkapan Layar Klien</h3>
+        </div>
+        <button class="modal-close text-slate-400 hover:text-white text-xl">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+      <div class="p-4 bg-black flex items-center justify-center min-h-[300px]">
+        <img id="modalScreenshotImg" src="" alt="Layar Klien" class="max-h-[70vh] rounded border border-slate-800 object-contain">
+      </div>
+      <div class="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <span id="modalScreenshotTime">Diambil pada: -</span>
+        <button class="modal-close px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SHUTDOWN / RESTART CONFIRMATION -->
+  <div id="modalPower" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-6 space-y-4">
+      <div class="flex items-center gap-3">
+        <div id="modalPowerIcon" class="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl">
+          <i class="ph-bold ph-power"></i>
+        </div>
+        <div>
+          <h3 id="modalPowerTitle" class="font-bold text-white text-lg">Konfirmasi Shutdown</h3>
+          <p id="modalPowerSubtitle" class="text-xs text-slate-400">Kirim instruksi matikan komputer massal</p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1 font-medium">Hitung Mundur (Detik)</label>
+          <input id="powerSecondsInput" type="number" value="30" min="5" max="300" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1 font-medium">Pesan Peringatan di Layar Siswa</label>
+          <textarea id="powerMessageInput" rows="2" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-blue-500">Perhatian: Sesi ujian telah berakhir. Komputer akan dimatikan dalam 30 detik!</textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button class="modal-close px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium">Batal</button>
+        <button id="btnConfirmPower" class="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium shadow-lg shadow-rose-600/30">
+          Eksekusi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CUSTOM POWERSHELL -->
+  <div id="modalCustomScript" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl p-6 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl">
+          <i class="ph-bold ph-terminal"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-lg">Eksekusi Skrip PowerShell Kustom</h3>
+          <p class="text-xs text-slate-400">Jalankan perintah langsung di seluruh PC target</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs text-slate-400 mb-1 font-medium">Skrip PowerShell (.ps1)</label>
+        <textarea id="customScriptInput" rows="5" placeholder="Get-Service 'Action1 Agent' | Select-Object Status..." class="w-full font-mono text-xs px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-emerald-400 focus:outline-none focus:border-cyan-500"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button class="modal-close px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium">Batal</button>
+        <button id="btnConfirmCustomScript" class="px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium shadow-lg shadow-cyan-600/30">
+          Jalankan Sekarang
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

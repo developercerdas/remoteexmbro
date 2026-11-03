@@ -1,0 +1,15 @@
+{
+  "name": "remote-exambro-server",
+  "version": "1.0.0",
+  "description": "Server Proctor Master Controller untuk Otomasi Remote ExamBrowser Client",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "author": "RemoteExambro Team",
+  "license": "MIT"
+}

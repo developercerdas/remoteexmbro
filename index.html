@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RemoteExambro Portal Proktor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      max-width: 520px;
+      width: 100%;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .badge {
+      display: inline-block;
+      background: #2563eb;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 15px;
+    }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+    p.desc { font-size: 14px; color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #1d4ed8, #1e40af);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    .btn-secondary:hover {
+      background: #475569;
+    }
+    .info-box {
+      background: #0f172a;
+      border: 1px dashed #475569;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 15px;
+      text-align: left;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .info-box code {
+      color: #38bdf8;
+      background: #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">🚀 RemoteExambro Proctor v1.0</span>
+    <h1>Portal Kontrol Ujian</h1>
+    <p class="desc">Akses Dashboard Proktor untuk mengontrol ExamBrowser, membuka ujian, mematikan/menghidupkan PC, dan memantau kamera siswa secara live.</p>
+
+    <!-- Tombol Langsung ke Cloudflare Tunnel Aktif -->
+    <a href="https://reward-particle-specifics-pros.trycloudflare.com" class="btn btn-primary" target="_blank">
+      🌐 Buka Dashboard Online (Cloudflare Tunnel)
+    </a>
+
+    <!-- Tombol Akses LAN Lokal -->
+    <a href="http://10.10.11.85:3000" class="btn btn-secondary">
+      📶 Buka Dashboard via WiFi Lab (10.10.11.85:3000)
+    </a>
+
+    <div class="info-box">
+      <strong>💡 Tips Penggunaan di HP:</strong><br>
+      • Jika menggunakan <strong>Paket Data / Luar Sekolah</strong>, gunakan link Cloudflare Tunnel di atas.<br>
+      • Jika terhubung ke <strong>WiFi Lab Sekolah</strong>, Anda bisa langsung mengakses <code>http://10.10.11.85:3000</code>.<br>
+      • Pastikan komputer server proktor di lab dalam keadaan menyala.
+    </div>
+  </div>
+</body>
+</html>

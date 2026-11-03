@@ -2,6 +2,9 @@
 server/node_modules/
 node_modules/
 
+# Binaries
+*.exe
+
 # Logs
 *.log
 npm-debug.log*

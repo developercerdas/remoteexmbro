@@ -165,34 +165,59 @@ $Script:Config = Load-Config
 $Script:ActiveServerUrl = ""
 $Script:ClientId = $env:COMPUTERNAME + "_" + (Get-Random -Minimum 1000 -Maximum 9999)
 
-# ----------------- FUNGSI AUTO-DISCOVERY SERVER -----------------
+# ----------------- FUNGSI AUTO-DISCOVERY SERVER DINAMIS -----------------
 function Discover-Server {
+    Write-Host "[Discovery] Mencari server proktor dinamis secara otomatis..." -ForegroundColor Cyan
+
+    # 1. Jika ada IP yang didefinisikan secara khusus (selain auto)
     if ($Script:Config.serverIp -ne "auto" -and -not [string]::IsNullOrWhiteSpace($Script:Config.serverIp)) {
-        return "http://$($Script:Config.serverIp):$($Script:Config.serverPort)"
+        try {
+            $testUrl = "http://$($Script:Config.serverIp):$($Script:Config.serverPort)/api/info"
+            $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
+            if ($res -and $res.serverIp) {
+                return "http://$($Script:Config.serverIp):$($Script:Config.serverPort)"
+            }
+        } catch {}
     }
 
-    Write-Host "[Discovery] Mencari server RemoteExambro via UDP Broadcast (port 3001)..." -ForegroundColor Cyan
+    # 2. Coba temukan lewat Hostname Komputer Server (TETAP walaupun IP berubah)
+    $serverHostnames = @("WIN-A34NP8S7ADV", "SERVER-PROKTOR", "PROKTOR-PC", "SERVER")
+    foreach ($hname in $serverHostnames) {
+        try {
+            $testUrl = "http://$hname`:$($Script:Config.serverPort)/api/info"
+            $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
+            if ($res -and $res.serverIp) {
+                Write-Host "[Discovery] Server ditemukan via Nama Komputer ($hname)!" -ForegroundColor Green
+                return "http://$hname`:$($Script:Config.serverPort)"
+            }
+        } catch {}
+    }
+
+    # 3. Coba UDP Broadcast & Query Aktif (Port 3001)
     try {
         $udp = New-Object System.Net.Sockets.UdpClient
-        $udp.Client.ReceiveTimeout = 2000
-        $udp.Client.Bind((New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 3001)))
+        $udp.Client.ReceiveTimeout = 1500
+        $udp.Client.Bind((New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)))
+
+        # Kirim sinyal pencarian aktif ke broadcast
+        $queryBytes = [System.Text.Encoding]::UTF8.GetBytes("REMOTE_EXAMBRO_FIND_SERVER")
+        $udp.Send($queryBytes, $queryBytes.Length, "255.255.255.255", 3001) | Out-Null
+
         $sender = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
-        
         $bytes = $udp.Receive([ref]$sender)
         $message = [System.Text.Encoding]::UTF8.GetString($bytes)
         $udp.Close()
 
         if ($message -like "REMOTE_EXAMBRO_BEACON:*") {
-            $jsonStr = $message.Substring(22)
-            $beacon = $jsonStr | ConvertFrom-Json
-            Write-Host "[Discovery] Server ditemukan di $($beacon.ip):$($beacon.port)" -ForegroundColor Green
+            $beacon = $message.Substring(22) | ConvertFrom-Json
+            Write-Host "[Discovery] Server ditemukan via sinyal UDP di $($beacon.ip):$($beacon.port)" -ForegroundColor Green
             return "http://$($beacon.ip):$($beacon.port)"
         }
     } catch {
-        # Timeout atau port bentrok
+        try { if ($udp) { $udp.Close() } } catch {}
     }
 
-    # 3. Coba periksa apakah Default Gateway bertindak sebagai server
+    # 4. Coba periksa apakah Default Gateway bertindak sebagai server
     try {
         $gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1).NextHop
         if ($gw -and $gw -ne '0.0.0.0') {
@@ -205,27 +230,39 @@ function Discover-Server {
         }
     } catch {}
 
-    # 4. Pemindaian Cepat Subnet Lokal (jika IP server proktor berubah karena DHCP)
+    # 5. Pemindaian Otomatis Subnet Lokal (Menemukan IP Server Dinamis Apapun)
     $myIP = Get-LocalIP
     if ($myIP -match '^(\d+\.\d+\.\d+)\.\d+$') {
         $subnet = $matches[1]
-        Write-Host "[Discovery] Memindai subnet $subnet.* mencari server proktor aktif..." -ForegroundColor Cyan
-        $probeList = @(85, 200, 100, 1, 2, 50, 10, 250, 80, 81, 82, 83, 84, 86, 87, 88, 89, 90)
-        foreach ($h in $probeList) {
-            $testTarget = "$subnet.$h"
-            try {
-                $testUrl = "http://$testTarget`:$($Script:Config.serverPort)/api/info"
-                $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
-                if ($res -and $res.serverIp) {
-                    Write-Host "[Discovery] Server otomatis ditemukan di $testTarget!" -ForegroundColor Green
-                    return "http://$testTarget`:$($Script:Config.serverPort)"
+        Write-Host "[Discovery] Memindai subnet $subnet.* mencari server yang sedang aktif..." -ForegroundColor Cyan
+        
+        # Prioritas: IP terakhir yang diketahui, lalu seluruh rentang lab
+        $priorityHosts = @(85, 100, 1, 2, 200, 50, 10, 254) + (3..99) + (101..199)
+        foreach ($h in $priorityHosts) {
+            $targetIP = "$subnet.$h"
+            $sock = New-Object System.Net.Sockets.TcpClient
+            $iar = $sock.BeginConnect($targetIP, $Script:Config.serverPort, $null, $null)
+            if ($iar.AsyncWaitHandle.WaitOne(60, $false)) {
+                try {
+                    $sock.EndConnect($iar)
+                    $sock.Close()
+                    $testUrl = "http://$targetIP`:$($Script:Config.serverPort)/api/info"
+                    $res = Invoke-RestMethod -Uri $testUrl -TimeoutSec 1 -ErrorAction SilentlyContinue
+                    if ($res -and $res.serverIp) {
+                        Write-Host "[Discovery] Server otomatis ditemukan di $targetIP!" -ForegroundColor Green
+                        return "http://$targetIP`:$($Script:Config.serverPort)"
+                    }
+                } catch {
+                    $sock.Close()
                 }
-            } catch {}
+            } else {
+                $sock.Close()
+            }
         }
     }
 
     $fallback = "http://$($Script:Config.fallbackServerIp):$($Script:Config.serverPort)"
-    Write-Host "[Discovery] Tidak menerima UDP beacon, mencoba fallback ke $fallback..." -ForegroundColor Yellow
+    Write-Host "[Discovery] Menggunakan fallback ke $fallback..." -ForegroundColor Yellow
     return $fallback
 }
 

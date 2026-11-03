@@ -34,17 +34,33 @@ function addLog(type, message, details = null) {
   broadcastToDashboards({ type: 'LOG_ENTRY', data: logEntry });
 }
 
-// Mendapatkan IP LAN Server
-function getLocalLANIP() {
+// Mendapatkan semua IP LAN aktif dan alamat broadcast subnet masing-masing
+function getAllActiveIPv4() {
+  const list = [];
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal && !iface.address.startsWith('169.254.')) {
-        return iface.address;
+        try {
+          const ipParts = iface.address.split('.').map(Number);
+          const maskParts = (iface.netmask || '255.255.255.0').split('.').map(Number);
+          const broadcastParts = ipParts.map((part, i) => (part | (~maskParts[i] & 255)));
+          list.push({ name, ip: iface.address, broadcast: broadcastParts.join('.') });
+        } catch (e) {
+          list.push({ name, ip: iface.address, broadcast: '255.255.255.255' });
+        }
       }
     }
   }
-  return '127.0.0.1';
+  return list.length > 0 ? list : [{ name: 'loopback', ip: '127.0.0.1', broadcast: '255.255.255.255' }];
+}
+
+function getLocalLANIP() {
+  const all = getAllActiveIPv4();
+  // Utamakan IP Ethernet (kabel lab) jika ada
+  const eth = all.find((i) => i.name.toLowerCase().includes('ethernet') || i.ip.startsWith('10.') || i.ip.startsWith('192.168.0.'));
+  if (eth) return eth.ip;
+  return all[0].ip;
 }
 
 const SERVER_IP = getLocalLANIP();
@@ -65,32 +81,55 @@ function sendWakeOnLAN(mac) {
   const udpClient = dgram.createSocket('udp4');
   udpClient.bind(() => {
     udpClient.setBroadcast(true);
-    udpClient.send(magicPacket, 0, magicPacket.length, 9, '255.255.255.255', (err) => {
+    getAllActiveIPv4().forEach((iface) => {
+      udpClient.send(magicPacket, 0, magicPacket.length, 9, iface.broadcast, () => {});
+    });
+    udpClient.send(magicPacket, 0, magicPacket.length, 9, '255.255.255.255', () => {
       try { udpClient.close(); } catch (e) {}
     });
   });
   return true;
 }
 
-// UDP Beacon Broadcast untuk Auto-Discovery Agent
+// UDP Beacon Broadcast & Discovery Responder untuk Auto-Discovery Dinamis 100%
 function startUDPBeacon() {
-  const udpClient = dgram.createSocket('udp4');
-  udpClient.bind(() => {
-    udpClient.setBroadcast(true);
+  const udpServer = dgram.createSocket('udp4');
+
+  udpServer.on('error', (err) => {
+    // Port mungkin sedang dipakai, abaikan
   });
 
+  udpServer.on('message', (msg, rinfo) => {
+    const text = msg.toString();
+    if (text.includes('REMOTE_EXAMBRO_FIND_SERVER')) {
+      // Klien sedang mencari server! Cari IP yang satu subnet dengan klien
+      const clientIP = rinfo.address;
+      const all = getAllActiveIPv4();
+      const clientSubnet = clientIP.split('.').slice(0, 3).join('.');
+      const matchedIface = all.find((i) => i.ip.startsWith(clientSubnet)) || all[0];
+
+      const reply = Buffer.from(`REMOTE_EXAMBRO_BEACON:${JSON.stringify({ ip: matchedIface.ip, port: PORT, hostname: os.hostname() })}`);
+      udpServer.send(reply, 0, reply.length, rinfo.port, rinfo.address, () => {});
+    }
+  });
+
+  udpServer.bind(UDP_PORT, () => {
+    udpServer.setBroadcast(true);
+  });
+
+  // Broadcast periodik ke setiap subnet kartu jaringan yang aktif
   setInterval(() => {
     try {
-      const message = Buffer.from(`REMOTE_EXAMBRO_BEACON:${JSON.stringify({ ip: SERVER_IP, port: PORT })}`);
-      udpClient.send(message, 0, message.length, UDP_PORT, '255.255.255.255', (err) => {
-        if (err && err.code !== 'ENETUNREACH') {
-          // ignore transient udp broadcast errors
-        }
+      const all = getAllActiveIPv4();
+      all.forEach((iface) => {
+        const message = Buffer.from(`REMOTE_EXAMBRO_BEACON:${JSON.stringify({ ip: iface.ip, port: PORT, hostname: os.hostname() })}`);
+        udpServer.send(message, 0, message.length, UDP_PORT, iface.broadcast, () => {});
       });
-    } catch (e) {
-      // ignore
-    }
-  }, 2500);
+      // Juga kirim ke 255.255.255.255
+      const globalMsg = Buffer.from(`REMOTE_EXAMBRO_BEACON:${JSON.stringify({ ip: getLocalLANIP(), port: PORT, hostname: os.hostname() })}`);
+      udpServer.send(globalMsg, 0, globalMsg.length, UDP_PORT, '255.255.255.255', () => {});
+    } catch (e) {}
+  }, 2000);
 }
 
 // WebSocket broadcast ke Dashboard Proktor

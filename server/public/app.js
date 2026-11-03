@@ -49,6 +49,16 @@ function connectWebSocket() {
           if (loadingEl) loadingEl.classList.add('hidden');
           if (infoEl) infoEl.textContent = `Perangkat: ${msg.webcamName || 'Kamera Siswa'} (${msg.hostname || ''})`;
           if (timeEl) timeEl.textContent = `Waktu Pengambilan: ${msg.time}`;
+
+          // Jika mode Live Stream aktif, jadwalkan permintaan frame berikutnya otomatis
+          if (isLiveCamera && !document.getElementById('modalCamera').classList.contains('hidden')) {
+            clearTimeout(liveStreamTimer);
+            liveStreamTimer = setTimeout(() => {
+              if (isLiveCamera && activeCameraClientId) {
+                sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
+              }
+            }, 800);
+          }
         }
       } else if (msg.type === 'SCREENSHOT_UPDATE') {
         // Realtime update modal screenshot jika sedang dibuka
@@ -504,9 +514,46 @@ function openScreenshotModal(client) {
 }
 
 let activeCameraClientId = null;
+let isLiveCamera = true;
+let currentCropMode = true; // true = Fokus Wajah Kamera (Besar), false = Layar Penuh
+let liveStreamTimer = null;
+
+function updateLiveButtonUI() {
+  const btn = document.getElementById('btnToggleLiveCamera');
+  const lbl = document.getElementById('lblLiveStatus');
+  const fps = document.getElementById('modalCameraFps');
+  if (!btn || !lbl) return;
+
+  if (isLiveCamera) {
+    btn.className = 'px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-rose-950/80 text-rose-400 border border-rose-800/80 hover:bg-rose-900/50';
+    lbl.textContent = '🔴 LIVE STREAM AKTIF';
+    if (fps) {
+      fps.className = 'text-emerald-400 font-semibold flex items-center gap-1';
+      fps.innerHTML = '<i class="ph-bold ph-broadcast animate-pulse"></i> Live Stream';
+    }
+  } else {
+    btn.className = 'px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700';
+    lbl.textContent = '⏸️ LIVE DIJEDA';
+    if (fps) {
+      fps.className = 'text-slate-500 font-medium flex items-center gap-1';
+      fps.innerHTML = '<i class="ph-bold ph-pause"></i> Dijeda';
+    }
+  }
+}
+
+function updateCropButtonUI() {
+  const lbl = document.getElementById('lblCropMode');
+  if (lbl) {
+    lbl.textContent = currentCropMode ? 'Fokus Wajah' : 'Layar Penuh';
+  }
+}
 
 function openCameraModal(client) {
   activeCameraClientId = client.clientId;
+  isLiveCamera = true;
+  updateLiveButtonUI();
+  updateCropButtonUI();
+
   document.getElementById('modalCameraTitle').textContent = `Pantauan Kamera: ${client.hostname} (${client.ip})`;
   const imgEl = document.getElementById('modalCameraImg');
   const loadingEl = document.getElementById('modalCameraLoading');
@@ -529,10 +576,13 @@ function openCameraModal(client) {
     imgEl.src = '';
     imgEl.classList.add('hidden');
     if (loadingEl) loadingEl.classList.remove('hidden');
-    infoEl.textContent = 'Menghubungi agen client, mohon tunggu...';
-    timeEl.textContent = 'Meminta gambar...';
+    infoEl.textContent = 'Menghubungi live camera siswa...';
+    timeEl.textContent = 'Meminta live stream...';
   }
   document.getElementById('modalCamera').classList.remove('hidden');
+
+  // Minta frame baru dari klien dengan mode crop kamera fokus
+  sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
 }
 
 function openPowerModal(type) {
@@ -660,10 +710,35 @@ document.addEventListener('DOMContentLoaded', () => {
   // Refresh Camera modal button
   document.getElementById('btnRefreshCamera').addEventListener('click', () => {
     if (activeCameraClientId) {
-      sendCommand('camera_snapshot', [activeCameraClientId]);
+      sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
       const loadingEl = document.getElementById('modalCameraLoading');
       if (loadingEl) loadingEl.classList.remove('hidden');
       document.getElementById('modalCameraInfo').textContent = 'Sedang mengambil foto kamera terbaru dari PC siswa...';
+    }
+  });
+
+  // Toggle Live Camera Stream
+  document.getElementById('btnToggleLiveCamera').addEventListener('click', () => {
+    isLiveCamera = !isLiveCamera;
+    updateLiveButtonUI();
+    if (isLiveCamera && activeCameraClientId) {
+      sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
+    } else {
+      clearTimeout(liveStreamTimer);
+    }
+  });
+
+  // Toggle Crop Mode (Fokus Wajah vs Layar Penuh)
+  document.getElementById('btnToggleCropMode').addEventListener('click', () => {
+    currentCropMode = !currentCropMode;
+    updateCropButtonUI();
+    if (activeCameraClientId) {
+      const loadingEl = document.getElementById('modalCameraLoading');
+      if (loadingEl) loadingEl.classList.remove('hidden');
+      document.getElementById('modalCameraInfo').textContent = currentCropMode
+        ? 'Mengubah tampilan ke Fokus Wajah Siswa...'
+        : 'Mengubah tampilan ke Layar Penuh Siswa...';
+      sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
     }
   });
 
@@ -717,6 +792,8 @@ document.addEventListener('DOMContentLoaded', () => {
         m.classList.add('hidden');
       });
       activeCameraClientId = null;
+      isLiveCamera = false;
+      clearTimeout(liveStreamTimer);
     });
   });
 

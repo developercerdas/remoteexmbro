@@ -273,26 +273,43 @@
     </div>
   </div>
 
-  <!-- MODAL: PREVIEW WEBCAM SISWA -->
+  <!-- MODAL: PREVIEW WEBCAM SISWA (LIVE STREAM & FOKUS KAMERA) -->
   <div id="modalCamera" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl">
       <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
           <i class="ph-bold ph-webcam text-purple-400 text-lg"></i>
           <h3 id="modalCameraTitle" class="font-semibold text-white">Pantauan Kamera Siswa</h3>
         </div>
-        <button class="modal-close text-slate-400 hover:text-white text-xl">
-          <i class="ph-bold ph-x"></i>
-        </button>
-      </div>
-      <div class="p-4 bg-slate-950 flex flex-col items-center justify-center min-h-[340px] relative">
-        <div id="modalCameraLoading" class="flex flex-col items-center justify-center py-12 space-y-3">
-          <i class="ph-bold ph-spinner animate-spin text-4xl text-purple-400"></i>
-          <p class="text-sm font-medium text-slate-300">Menghubungi PC siswa & mengambil foto webcam...</p>
-          <p class="text-xs text-slate-500">Mohon tunggu beberapa detik</p>
+        <div class="flex items-center gap-2">
+          <!-- Toggle Live Stream -->
+          <button id="btnToggleLiveCamera" title="Klik untuk menjeda/melanjutkan pantauan live otomatis" class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-rose-950/80 text-rose-400 border border-rose-800/80 hover:bg-rose-900/50">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+            <span id="lblLiveStatus">🔴 LIVE STREAM AKTIF</span>
+          </button>
+          <!-- Toggle View Mode: Fokus Wajah vs Layar Penuh -->
+          <button id="btnToggleCropMode" title="Ubah tampilan: Fokus Wajah Kamera atau Layar Penuh Siswa" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition">
+            <i class="ph-bold ph-arrows-out-simple"></i>
+            <span id="lblCropMode">Layar Penuh</span>
+          </button>
+          <button class="modal-close text-slate-400 hover:text-white text-xl ml-1">
+            <i class="ph-bold ph-x"></i>
+          </button>
         </div>
-        <img id="modalCameraImg" src="" alt="Kamera Siswa" class="hidden max-h-[60vh] w-auto rounded-xl border border-slate-800 object-contain shadow-2xl transition duration-300">
-        <p id="modalCameraInfo" class="text-xs text-slate-400 mt-3 font-mono text-center">Memuat gambar kamera...</p>
+      </div>
+      <div class="p-4 bg-slate-950 flex flex-col items-center justify-center min-h-[380px] relative">
+        <div id="modalCameraLoading" class="flex flex-col items-center justify-center py-14 space-y-3">
+          <i class="ph-bold ph-spinner animate-spin text-4xl text-purple-400"></i>
+          <p class="text-sm font-medium text-slate-300">Menghubungkan ke live camera siswa...</p>
+          <p class="text-xs text-slate-500">Gambar diperbarui otomatis secara real-time</p>
+        </div>
+        <img id="modalCameraImg" src="" alt="Kamera Siswa" class="hidden max-h-[65vh] w-auto rounded-xl border border-purple-900/50 object-contain shadow-2xl transition duration-200">
+        <div class="w-full flex items-center justify-between mt-3 px-1 text-xs text-slate-400 font-mono">
+          <span id="modalCameraInfo">Memuat gambar kamera...</span>
+          <span id="modalCameraFps" class="text-emerald-400 font-semibold flex items-center gap-1">
+            <i class="ph-bold ph-broadcast"></i> Live Stream
+          </span>
+        </div>
       </div>
       <div class="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
         <span id="modalCameraTime">Waktu Pengambilan: -</span>

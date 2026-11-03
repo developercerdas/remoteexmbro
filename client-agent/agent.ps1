@@ -116,6 +116,10 @@ public class Win32 {
         if (width <= 0) width = 1024;
         if (height <= 0) height = 768;
 
+        return CaptureHBitmap(0, 0, width, height);
+    }
+
+    public static IntPtr CaptureHBitmap(int x, int y, int width, int height) {
         IntPtr hDeskWnd = GetDesktopWindow();
         IntPtr hDeskDC = GetDC(hDeskWnd);
         if (hDeskDC == IntPtr.Zero) {
@@ -126,7 +130,7 @@ public class Win32 {
         IntPtr hBitmap = CreateCompatibleBitmap(hDeskDC, width, height);
         IntPtr hOldBitmap = SelectObject(hMemDC, hBitmap);
 
-        BitBlt(hMemDC, 0, 0, width, height, hDeskDC, 0, 0, SRCCOPY);
+        BitBlt(hMemDC, 0, 0, width, height, hDeskDC, x, y, SRCCOPY);
 
         SelectObject(hMemDC, hOldBitmap);
         DeleteDC(hMemDC);
@@ -705,24 +709,34 @@ function Stop-ExamBrowserForce {
 
 function Capture-CleanScreenJpeg {
     param(
+        [int]$X = 0,
+        [int]$Y = 0,
+        [int]$SourceWidth = 0,
+        [int]$SourceHeight = 0,
         [int]$TargetWidth = 640,
-        [long]$Quality = 55
+        [long]$Quality = 60
     )
     try {
-        $w = 0
-        $h = 0
-        $hBitmap = [Win32]::CaptureDesktopHBitmap([ref]$w, [ref]$h)
+        if ($SourceWidth -le 0 -or $SourceHeight -le 0) {
+            $SourceWidth = [Win32]::GetSystemMetrics(0)
+            $SourceHeight = [Win32]::GetSystemMetrics(1)
+            if ($SourceWidth -le 0) { $SourceWidth = 1024 }
+            if ($SourceHeight -le 0) { $SourceHeight = 768 }
+        }
+
+        $hBitmap = [Win32]::CaptureHBitmap($X, $Y, $SourceWidth, $SourceHeight)
         if ($hBitmap -eq [IntPtr]::Zero) { return $null }
 
         $srcBmp = [System.Drawing.Image]::FromHbitmap($hBitmap)
         [Win32]::DeleteObject($hBitmap) | Out-Null
 
-        $targetH = [int]($h * ($TargetWidth / $w))
+        # Target size
+        $targetH = [int]($SourceHeight * ($TargetWidth / $SourceWidth))
         if ($targetH -le 0) { $targetH = 360 }
 
         $thumb = New-Object System.Drawing.Bitmap $TargetWidth, $targetH
         $gfx = [System.Drawing.Graphics]::FromImage($thumb)
-        $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::Bilinear
+        $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
         $gfx.DrawImage($srcBmp, 0, 0, $TargetWidth, $targetH)
         $gfx.Dispose()
         $srcBmp.Dispose()
@@ -746,14 +760,25 @@ function Capture-CleanScreenJpeg {
 }
 
 function Capture-CameraSnapshot {
-    # 1. Coba tangkap layar dengan GDI BitBlt (tampilan ujian + feed kamera siswa)
+    param([bool]$CropToCam = $true)
+
+    # 1. Jika mode CropToCam aktif (atau ExamCam sedang berjalan), potong langsung area video webcam (0,0 s.d 220x195) dan perbesar menjadi 640px penuh
+    if ($CropToCam) {
+        $camCrop = Capture-CleanScreenJpeg -X 0 -Y 0 -SourceWidth 220 -SourceHeight 195 -TargetWidth 640 -Quality 75
+        if ($camCrop) {
+            Write-Host "[Camera] Berhasil mengambil foto fokus kamera siswa (Ukuran Besar)." -ForegroundColor Green
+            return $camCrop
+        }
+    }
+
+    # 2. Mode Layar Penuh (Fallback)
     $cam = Capture-CleanScreenJpeg -TargetWidth 720 -Quality 60
     if ($cam) {
         Write-Host "[Camera] Berhasil mengambil foto kamera/layar siswa ($([int]($cam.Length / 1024)) KB)." -ForegroundColor Green
         return $cam
     }
 
-    # 2. Fallback jika GDI gagal: periksa folder Temp ExamCam
+    # 3. Fallback jika GDI gagal: periksa folder Temp ExamCam
     try {
         $tempPics = Get-ChildItem -Path $env:TEMP -Filter "*Webcam*" -ErrorAction SilentlyContinue |
                     Where-Object { (Get-Date) - $_.LastWriteTime -lt (New-TimeSpan -Minutes 15) } |
@@ -826,7 +851,9 @@ function Handle-Task {
             }
         }
         "camera_snapshot" {
-            $camImg = Capture-CameraSnapshot
+            $isCrop = $true
+            if ($params -and ($params.crop -eq $false)) { $isCrop = $false }
+            $camImg = Capture-CameraSnapshot -CropToCam $isCrop
             if ($camImg) {
                 $result.success = $true
                 $result.message = "Foto kamera siswa berhasil diambil."

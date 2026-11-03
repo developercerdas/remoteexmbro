@@ -688,6 +688,8 @@ while ($true) {
                                       -TimeoutSec 3 `
                                       -ErrorAction Stop
 
+        Write-Host "[Agent] $(Get-Date -Format 'HH:mm:ss') -> Berhasil terhubung ke server ($($Script:ActiveServerUrl)) | Status: ONLINE" -ForegroundColor Green
+
         # Kosongkan hasil yang sudah terkirim
         $pendingResults = @()
 

@@ -11,7 +11,7 @@ const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
 const UDP_PORT = 3001;
-const CLIENT_TIMEOUT_MS = 6000; // Jika tidak ada heartbeat dalam 6 detik, anggap offline
+const CLIENT_TIMEOUT_MS = 12000; // Jika tidak ada heartbeat dalam 12 detik, anggap offline
 
 app.use(express.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, 'public')));

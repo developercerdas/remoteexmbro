@@ -1,7 +1,7 @@
 {
-  "serverIp": "auto",
+  "serverIp": "10.10.11.85",
   "serverPort": 3000,
-  "fallbackServerIp": "127.0.0.1",
+  "fallbackServerIp": "10.10.11.85",
   "pollIntervalSeconds": 1.5,
   "defaultExamBrowserDir": "C:\\ExamBrowserClient",
   "searchDirectories": [

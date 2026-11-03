@@ -18,5 +18,5 @@ if %errorLevel% neq 0 (
 echo Membuka dashboard di browser dalam 2 detik...
 start "" "http://localhost:3000"
 
-node server.js
+node --max-old-space-size=4096 server.js
 pause

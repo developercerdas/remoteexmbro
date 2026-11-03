@@ -88,7 +88,13 @@ function loadClientsStore() {
 
 function saveClientsStore() {
   try {
-    fs.writeFileSync(CLIENTS_FILE, JSON.stringify(Array.from(clients.values()), null, 2));
+    const list = Array.from(clients.values()).map(c => {
+      const copy = { ...c };
+      delete copy.latestCameraImage;
+      delete copy.latestScreenshot;
+      return copy;
+    });
+    fs.writeFileSync(CLIENTS_FILE, JSON.stringify(list, null, 2));
   } catch (e) {}
 }
 
@@ -233,6 +239,7 @@ app.post('/api/agent/heartbeat', (req, res) => {
 
   const isNew = !clients.has(uniqueId);
   const existing = clients.get(uniqueId) || {};
+  const statusChanged = isNew || (existing.exambrowserRunning !== !!exambrowserRunning) || (existing.online !== true) || (existing.ip !== (ip || existing.ip));
 
   const clientData = {
     ...existing,
@@ -253,9 +260,9 @@ app.post('/api/agent/heartbeat', (req, res) => {
   };
 
   clients.set(uniqueId, clientData);
-  saveClientsStore();
 
   if (isNew) {
+    saveClientsStore();
     addLog('info', `Klien baru terhubung: ${clientData.hostname} (${clientData.ip})`);
   }
 
@@ -292,7 +299,9 @@ app.post('/api/agent/heartbeat', (req, res) => {
     });
   }
 
-  broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
+  if (statusChanged) {
+    broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
+  }
 
   // Ambil tugas yang tertunda untuk klien ini
   const tasks = pendingTasks.get(uniqueId) || [];

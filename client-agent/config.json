@@ -5,6 +5,8 @@
   "pollIntervalSeconds": 1.5,
   "defaultExamBrowserDir": "C:\\ExamBrowserClient",
   "searchDirectories": [
+    "C:\\Users\\Administrator\\Documents",
+    "C:\\Users\\Administrator\\Downloads",
     "C:\\ExamBrowserClient",
     "C:\\ExamBrowser",
     "C:\\ANBK",

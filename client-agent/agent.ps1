@@ -315,6 +315,20 @@ function Find-ExamBrowserExe {
     if ($Script:Config.defaultExamBrowserDir) { $dirsToCheck += $Script:Config.defaultExamBrowserDir }
     if ($Script:Config.searchDirectories) { $dirsToCheck += $Script:Config.searchDirectories }
 
+    # Tambahkan Documents, Downloads & Desktop pengguna
+    $userDocs = [Environment]::GetFolderPath('MyDocuments')
+    if ($userDocs -and (Test-Path $userDocs)) { $dirsToCheck += $userDocs }
+    $userDocs2 = Join-Path $env:USERPROFILE 'Documents'
+    if (Test-Path $userDocs2) { $dirsToCheck += $userDocs2 }
+
+    $userDownloads = Join-Path $env:USERPROFILE 'Downloads'
+    if (Test-Path $userDownloads) { $dirsToCheck += $userDownloads }
+
+    $userDesktop = [Environment]::GetFolderPath('Desktop')
+    if ($userDesktop) { $dirsToCheck += $userDesktop }
+    $dirsToCheck += "C:\Users\Public\Desktop"
+
+    # 1. Periksa folder langsung
     foreach ($d in $dirsToCheck) {
         if ($d -and (Test-Path $d)) {
             $candidate = Join-Path $d "ExamBrowser.exe"
@@ -322,13 +336,23 @@ function Find-ExamBrowserExe {
         }
     }
 
-    # Cari rekursif cepat di folder induk C:\ atau D:\ jika belum ketemu
+    # 2. Cari di subfolder Desktop / Downloads / ANBK hingga kedalaman 3
     foreach ($d in $dirsToCheck) {
-        if (Test-Path $d) {
-            $f = Get-ChildItem -Path $d -Filter 'ExamBrowser.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($d -and (Test-Path $d)) {
+            $f = Get-ChildItem -Path $d -Filter '*Exam*.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)exambrowser|exambro' } | Select-Object -First 1
             if ($f) { return $f.FullName }
         }
     }
+
+    # 3. Cari otomatis di folder utama drive C:\ dan D:\
+    $drives = @('C:\', 'D:\')
+    foreach ($drv in $drives) {
+        if (Test-Path $drv) {
+            $f = Get-ChildItem -Path $drv -Filter '*Exam*.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)exambrowser|exambro' } | Select-Object -First 1
+            if ($f) { return $f.FullName }
+        }
+    }
+
     return $null
 }
 

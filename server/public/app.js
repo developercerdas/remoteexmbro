@@ -259,13 +259,13 @@ function renderClients() {
         <div>
           <!-- TOP CARD HEADER: CHECKBOX & HOSTNAME -->
           <div class="flex items-start justify-between gap-2 mb-3">
-            <div class="flex items-center gap-2.5">
-              <input type="checkbox" data-client-id="${c.clientId}" class="client-checkbox w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer" ${isSelected ? 'checked' : ''}>
+            <label class="flex items-center gap-2.5 cursor-pointer select-none flex-1">
+              <input type="checkbox" data-client-id="${c.clientId}" class="client-checkbox cursor-pointer" style="width: 18px; height: 18px; accent-color: #2563eb;" ${isSelected ? 'checked' : ''}>
               <div>
-                <h3 class="font-bold text-white text-sm tracking-tight">${escapeHtml(c.hostname)}</h3>
+                <h3 class="font-bold text-white text-sm tracking-tight hover:text-blue-300 transition">${escapeHtml(c.hostname)}</h3>
                 <p class="text-xs font-mono text-slate-400">${escapeHtml(c.ip)}</p>
               </div>
-            </div>
+            </label>
             ${statusBadge}
           </div>
 
@@ -281,9 +281,33 @@ function renderClients() {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-400">Kamera/Webcam:</span>
-              ${camBadge}
+              ${c.webcamAvailable ? `
+                <button data-action="camera" data-client-id="${c.clientId}" title="Klik untuk membuka layar kamera siswa" class="btn-card-action px-2 py-0.5 rounded bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 border border-purple-700/50 text-xs font-medium flex items-center gap-1.5 transition">
+                  <i class="ph-bold ph-webcam text-purple-400"></i> ${escapeHtml(c.webcamName || 'Webcam Ada')} (Lihat)
+                </button>
+              ` : `
+                <span class="text-slate-500 flex items-center gap-1"><i class="ph-bold ph-prohibit"></i> Tidak Ada</span>
+              `}
             </div>
           </div>
+
+          <!-- CAMERA FEED PREVIEW (IF AVAILABLE) -->
+          ${
+            c.latestCameraImage
+              ? `
+              <div class="mb-3 relative group rounded-lg overflow-hidden border border-purple-600/50 bg-black cursor-pointer preview-camera-btn" data-client-id="${c.clientId}" title="Klik untuk memperbesar tampilan kamera">
+                <img src="${c.latestCameraImage}" alt="Feed Kamera" class="w-full h-32 object-cover object-center opacity-95 group-hover:opacity-100 transition">
+                <div class="absolute inset-0 bg-purple-950/20 group-hover:bg-transparent transition"></div>
+                <div class="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-sm border border-purple-800/80 text-purple-300 px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1">
+                  <i class="ph-bold ph-webcam text-xs text-purple-400"></i> Feed Kamera Siswa
+                </div>
+                <div class="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                  ${c.cameraTime || ''}
+                </div>
+              </div>
+            `
+              : ''
+          }
 
           <!-- SCREENSHOT THUMBNAIL PREVIEW (IF AVAILABLE) -->
           ${
@@ -293,7 +317,7 @@ function renderClients() {
                 <img src="${c.latestScreenshot}" alt="Preview Screen" class="w-full h-24 object-cover object-top opacity-90 group-hover:opacity-100 transition">
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
                   <span class="text-xs font-medium text-white px-2 py-1 rounded bg-black/70 flex items-center gap-1">
-                    <i class="ph-bold ph-magnifying-glass-plus"></i> Perbesar
+                    <i class="ph-bold ph-magnifying-glass-plus"></i> Perbesar Layar
                   </span>
                 </div>
                 <span class="absolute bottom-1 right-1 text-[10px] bg-black/70 text-slate-300 px-1.5 py-0.5 rounded font-mono">
@@ -329,8 +353,8 @@ function renderClients() {
           </button>
 
           <!-- Pantau Kamera -->
-          <button data-action="camera" data-client-id="${c.clientId}" title="Pantau Kamera Siswa" class="btn-card-action p-1.5 rounded-lg bg-purple-900/30 hover:bg-purple-900/50 text-purple-300 border border-purple-800/40 text-xs transition">
-            <i class="ph-bold ph-webcam text-sm"></i>
+          <button data-action="camera" data-client-id="${c.clientId}" title="Pantau Kamera Siswa" class="btn-card-action px-2.5 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-webcam text-sm"></i> Kamera
           </button>
 
           <!-- Kill Force -->
@@ -348,7 +372,11 @@ function renderClients() {
 function attachCardEvents() {
   // Checkbox toggle
   document.querySelectorAll('.client-checkbox').forEach((chk) => {
+    chk.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
     chk.addEventListener('change', (e) => {
+      e.stopPropagation();
       const id = e.target.getAttribute('data-client-id');
       if (e.target.checked) {
         state.selectedIds.add(id);
@@ -401,6 +429,17 @@ function attachCardEvents() {
       const client = state.clients.find((c) => c.clientId === clientId);
       if (client && client.latestScreenshot) {
         openScreenshotModal(client);
+      }
+    });
+  });
+
+  // Preview camera click
+  document.querySelectorAll('.preview-camera-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const clientId = e.currentTarget.getAttribute('data-client-id');
+      const client = state.clients.find((c) => c.clientId === clientId);
+      if (client) {
+        openCameraModal(client);
       }
     });
   });
@@ -600,11 +639,21 @@ document.addEventListener('DOMContentLoaded', () => {
     sendCommand('screenshot');
   });
 
-  // Mass Camera
+  // Mass Camera (Tombol Pantau Kamera di Atas)
   document.getElementById('btnMassCamera').addEventListener('click', () => {
-    const count = state.selectedIds.size || state.clients.filter((c) => c.online).length;
-    if (confirm(`Ambil foto kamera dari ${count} PC siswa?`)) {
-      sendCommand('camera_snapshot');
+    const selectedClients = Array.from(state.selectedIds).map(id => state.clients.find(c => c.clientId === id)).filter(Boolean);
+    const onlineClients = state.clients.filter((c) => c.online);
+
+    if (selectedClients.length > 0) {
+      const targetClient = selectedClients[0];
+      sendCommand('camera_snapshot', selectedClients.map(c => c.clientId));
+      openCameraModal(targetClient);
+    } else if (onlineClients.length > 0) {
+      const targetClient = onlineClients[0];
+      sendCommand('camera_snapshot', [targetClient.clientId]);
+      openCameraModal(targetClient);
+    } else {
+      alert('Tidak ada komputer klien yang sedang online.');
     }
   });
 

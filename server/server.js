@@ -74,6 +74,10 @@ function loadClientsStore() {
     if (fs.existsSync(CLIENTS_FILE)) {
       const raw = JSON.parse(fs.readFileSync(CLIENTS_FILE, 'utf8'));
       raw.forEach((c) => {
+        // Abaikan entri dummy 127.0.0.1 jika sudah ada entri LAN untuk host yang sama
+        if (c.ip === '127.0.0.1' && raw.some(other => other.hostname === c.hostname && other.ip !== '127.0.0.1')) {
+          return;
+        }
         c.online = false; // Saat server baru mulai, set awal offline
         clients.set(c.clientId, c);
       });

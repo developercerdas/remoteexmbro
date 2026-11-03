@@ -1,5 +1,5 @@
 {
-  "serverIp": "auto",
+  "serverIp": "10.10.11.85",
   "serverPort": 3000,
   "fallbackServerIp": "127.0.0.1",
   "pollIntervalSeconds": 1.5,

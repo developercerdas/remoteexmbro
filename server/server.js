@@ -176,16 +176,20 @@ app.post('/api/agent/heartbeat', (req, res) => {
     results
   } = req.body;
 
-  if (!clientId) {
-    return res.status(400).json({ error: 'clientId diperlukan' });
+  if (!clientId && !hostname && !mac) {
+    return res.status(400).json({ error: 'Identitas klien diperlukan' });
   }
 
-  const isNew = !clients.has(clientId);
-  const existing = clients.get(clientId) || {};
+  // Gunakan MAC Address atau Hostname sebagai ID unik komputer fisik (mencegah duplikat)
+  const uniqueId = mac ? ('PC_' + mac.replace(/[:-]/g, '')) : (hostname || clientId);
+
+  const isNew = !clients.has(uniqueId);
+  const existing = clients.get(uniqueId) || {};
 
   const clientData = {
     ...existing,
-    clientId,
+    clientId: uniqueId,
+    processId: clientId,
     hostname: hostname || existing.hostname || 'Client-PC',
     ip: ip || existing.ip || req.ip,
     mac: mac || existing.mac || '',
@@ -200,7 +204,7 @@ app.post('/api/agent/heartbeat', (req, res) => {
     online: true
   };
 
-  clients.set(clientId, clientData);
+  clients.set(uniqueId, clientData);
 
   if (isNew) {
     addLog('info', `Klien baru terhubung: ${clientData.hostname} (${clientData.ip})`);
@@ -221,8 +225,8 @@ app.post('/api/agent/heartbeat', (req, res) => {
   broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
 
   // Ambil tugas yang tertunda untuk klien ini
-  const tasks = pendingTasks.get(clientId) || [];
-  pendingTasks.delete(clientId);
+  const tasks = pendingTasks.get(uniqueId) || [];
+  pendingTasks.delete(uniqueId);
 
   return res.json({ status: 'ok', tasks });
 });

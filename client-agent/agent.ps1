@@ -170,7 +170,7 @@ function Load-Config {
 
 $Script:Config = Load-Config
 $Script:ActiveServerUrl = ""
-$Script:ClientId = $env:COMPUTERNAME + "_" + (Get-Random -Minimum 1000 -Maximum 9999)
+$Script:ClientId = $env:COMPUTERNAME
 
 # ----------------- FUNGSI AUTO-DISCOVERY SERVER DINAMIS -----------------
 function Discover-Server {

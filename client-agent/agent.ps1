@@ -17,8 +17,15 @@
 
 [CmdletBinding()]
 param(
-    [string]$ConfigPath = (Join-Path $PSScriptRoot "config.json")
+    [string]$ConfigPath = ""
 )
+
+# Tentukan lokasi script dan config.json secara aman tanpa error null Path
+$ScriptDirectory = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $ScriptDirectory) { $ScriptDirectory = (Get-Location).Path }
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = Join-Path $ScriptDirectory "config.json"
+}
 
 # Set TLS security protocol
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls
@@ -309,8 +316,10 @@ function Find-ExamBrowserExe {
     if ($Script:Config.searchDirectories) { $dirsToCheck += $Script:Config.searchDirectories }
 
     foreach ($d in $dirsToCheck) {
-        $candidate = Join-Path $d "ExamBrowser.exe"
-        if (Test-Path $candidate) { return $candidate }
+        if ($d -and (Test-Path $d)) {
+            $candidate = Join-Path $d "ExamBrowser.exe"
+            if (Test-Path $candidate) { return $candidate }
+        }
     }
 
     # Cari rekursif cepat di folder induk C:\ atau D:\ jika belum ketemu

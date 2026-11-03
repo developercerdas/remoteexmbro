@@ -515,7 +515,6 @@ function openScreenshotModal(client) {
 
 let activeCameraClientId = null;
 let isLiveCamera = true;
-let currentCropMode = true; // true = Fokus Wajah Kamera (Besar), false = Layar Penuh
 let liveStreamTimer = null;
 
 function updateLiveButtonUI() {
@@ -529,7 +528,7 @@ function updateLiveButtonUI() {
     lbl.textContent = '🔴 LIVE STREAM AKTIF';
     if (fps) {
       fps.className = 'text-emerald-400 font-semibold flex items-center gap-1';
-      fps.innerHTML = '<i class="ph-bold ph-broadcast animate-pulse"></i> Live Stream';
+      fps.innerHTML = '<i class="ph-bold ph-broadcast animate-pulse"></i> Live Stream Real-Time';
     }
   } else {
     btn.className = 'px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700';
@@ -541,20 +540,12 @@ function updateLiveButtonUI() {
   }
 }
 
-function updateCropButtonUI() {
-  const lbl = document.getElementById('lblCropMode');
-  if (lbl) {
-    lbl.textContent = currentCropMode ? 'Fokus Wajah' : 'Layar Penuh';
-  }
-}
-
 function openCameraModal(client) {
   activeCameraClientId = client.clientId;
   isLiveCamera = true;
   updateLiveButtonUI();
-  updateCropButtonUI();
 
-  document.getElementById('modalCameraTitle').textContent = `Pantauan Kamera: ${client.hostname} (${client.ip})`;
+  document.getElementById('modalCameraTitle').textContent = `Pantauan Kamera Fokus Wajah: ${client.hostname} (${client.ip})`;
   const imgEl = document.getElementById('modalCameraImg');
   const loadingEl = document.getElementById('modalCameraLoading');
   const infoEl = document.getElementById('modalCameraInfo');
@@ -566,23 +557,17 @@ function openCameraModal(client) {
     if (loadingEl) loadingEl.classList.add('hidden');
     infoEl.textContent = `Perangkat: ${client.webcamName || 'Kamera Siswa'}`;
     timeEl.textContent = `Waktu Pengambilan: ${client.cameraTime || '-'}`;
-  } else if (client.latestScreenshot) {
-    imgEl.src = client.latestScreenshot;
-    imgEl.classList.remove('hidden');
-    if (loadingEl) loadingEl.classList.add('hidden');
-    infoEl.textContent = `Tampilan Layar & Feed Kamera Siswa (Meminta snapshot baru...)`;
-    timeEl.textContent = `Waktu: ${client.screenshotTime || '-'}`;
   } else {
     imgEl.src = '';
     imgEl.classList.add('hidden');
     if (loadingEl) loadingEl.classList.remove('hidden');
-    infoEl.textContent = 'Menghubungi live camera siswa...';
+    infoEl.textContent = 'Menghubungkan live camera wajah siswa...';
     timeEl.textContent = 'Meminta live stream...';
   }
   document.getElementById('modalCamera').classList.remove('hidden');
 
-  // Minta frame baru dari klien dengan mode crop kamera fokus
-  sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
+  // Minta streaming live frame cepat langsung ke wajah
+  sendCommand('start_live_stream', [activeCameraClientId]);
 }
 
 function openPowerModal(type) {
@@ -710,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Refresh Camera modal button
   document.getElementById('btnRefreshCamera').addEventListener('click', () => {
     if (activeCameraClientId) {
-      sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
+      sendCommand('camera_snapshot', [activeCameraClientId]);
       const loadingEl = document.getElementById('modalCameraLoading');
       if (loadingEl) loadingEl.classList.remove('hidden');
       document.getElementById('modalCameraInfo').textContent = 'Sedang mengambil foto kamera terbaru dari PC siswa...';
@@ -721,26 +706,43 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnToggleLiveCamera').addEventListener('click', () => {
     isLiveCamera = !isLiveCamera;
     updateLiveButtonUI();
-    if (isLiveCamera && activeCameraClientId) {
-      sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
-    } else {
-      clearTimeout(liveStreamTimer);
+    if (activeCameraClientId) {
+      if (isLiveCamera) {
+        sendCommand('start_live_stream', [activeCameraClientId]);
+      } else {
+        sendCommand('stop_live_stream', [activeCameraClientId]);
+      }
     }
   });
 
-  // Toggle Crop Mode (Fokus Wajah vs Layar Penuh)
-  document.getElementById('btnToggleCropMode').addEventListener('click', () => {
-    currentCropMode = !currentCropMode;
-    updateCropButtonUI();
-    if (activeCameraClientId) {
-      const loadingEl = document.getElementById('modalCameraLoading');
-      if (loadingEl) loadingEl.classList.remove('hidden');
-      document.getElementById('modalCameraInfo').textContent = currentCropMode
-        ? 'Mengubah tampilan ke Fokus Wajah Siswa...'
-        : 'Mengubah tampilan ke Layar Penuh Siswa...';
-      sendCommand('camera_snapshot', [activeCameraClientId], { crop: currentCropMode });
-    }
-  });
+  // Fullscreen Layar Penuh Monitor
+  const btnFs = document.getElementById('btnFullscreenCamera');
+  if (btnFs) {
+    btnFs.addEventListener('click', () => {
+      const el = document.getElementById('modalCameraContainer');
+      const lbl = document.getElementById('lblFullscreen');
+      if (!document.fullscreenElement) {
+        if (el.requestFullscreen) {
+          el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        }
+        if (lbl) lbl.textContent = 'Keluar Layar Penuh';
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+        if (lbl) lbl.textContent = 'Layar Penuh Monitor';
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      const lbl = document.getElementById('lblFullscreen');
+      if (!document.fullscreenElement && lbl) {
+        lbl.textContent = 'Layar Penuh Monitor';
+      }
+    });
+  }
 
   // Dropdown Menu Toggle
   const btnMoreMenu = document.getElementById('btnMoreMenu');
@@ -788,9 +790,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal Close buttons
   document.querySelectorAll('.modal-close').forEach((btn) => {
     btn.addEventListener('click', () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
       document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript').forEach((m) => {
         m.classList.add('hidden');
       });
+      if (activeCameraClientId) {
+        sendCommand('stop_live_stream', [activeCameraClientId]);
+      }
       activeCameraClientId = null;
       isLiveCamera = false;
       clearTimeout(liveStreamTimer);

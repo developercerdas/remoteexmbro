@@ -301,6 +301,34 @@ app.post('/api/agent/heartbeat', (req, res) => {
   return res.json({ status: 'ok', tasks });
 });
 
+// Endpoint streaming kamera ultra-cepat (Sub-detik / Realtime Live Stream)
+app.post('/api/agent/live-frame', (req, res) => {
+  const { clientId, image, webcamName } = req.body;
+  if (!clientId || !image) {
+    return res.status(400).json({ error: 'Data tidak lengkap' });
+  }
+
+  const clientData = clients.get(clientId);
+  const time = new Date().toLocaleTimeString('id-ID');
+  if (clientData) {
+    clientData.latestCameraImage = image;
+    clientData.cameraTime = time;
+    clientData.lastSeen = Date.now();
+  }
+
+  broadcastToDashboards({
+    type: 'CAMERA_UPDATE',
+    clientId,
+    image,
+    time,
+    hostname: clientData ? clientData.hostname : '',
+    ip: clientData ? clientData.ip : req.ip,
+    webcamName: webcamName || (clientData ? clientData.webcamName : 'Webcam')
+  });
+
+  return res.json({ status: 'ok' });
+});
+
 // --- REST API UNTUK DASHBOARD PROKTOR ---
 
 app.get('/api/info', (req, res) => {

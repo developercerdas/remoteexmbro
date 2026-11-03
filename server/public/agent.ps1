@@ -762,36 +762,23 @@ function Capture-CleanScreenJpeg {
 function Capture-CameraSnapshot {
     param([bool]$CropToCam = $true)
 
-    # 1. Jika mode CropToCam aktif (atau ExamCam sedang berjalan), potong langsung area video webcam (0,0 s.d 220x195) dan perbesar menjadi 640px penuh
+    # 1. Potong murni kotak kamera wajah siswa (X=0, Y=33, Width=207, Height=154) - tanpa border hitam / tanpa bar biru
     if ($CropToCam) {
-        $camCrop = Capture-CleanScreenJpeg -X 0 -Y 0 -SourceWidth 220 -SourceHeight 195 -TargetWidth 640 -Quality 75
+        $camCrop = Capture-CleanScreenJpeg -X 0 -Y 33 -SourceWidth 207 -SourceHeight 154 -TargetWidth 640 -Quality 70
         if ($camCrop) {
-            Write-Host "[Camera] Berhasil mengambil foto fokus kamera siswa (Ukuran Besar)." -ForegroundColor Green
             return $camCrop
         }
     }
 
-    # 2. Mode Layar Penuh (Fallback)
-    $cam = Capture-CleanScreenJpeg -TargetWidth 720 -Quality 60
-    if ($cam) {
-        Write-Host "[Camera] Berhasil mengambil foto kamera/layar siswa ($([int]($cam.Length / 1024)) KB)." -ForegroundColor Green
-        return $cam
+    # 2. Fallback: kotak widget ExamCam penuh (X=0, Y=0, 220x195)
+    $camWidget = Capture-CleanScreenJpeg -X 0 -Y 0 -SourceWidth 220 -SourceHeight 195 -TargetWidth 640 -Quality 70
+    if ($camWidget) {
+        return $camWidget
     }
 
-    # 3. Fallback jika GDI gagal: periksa folder Temp ExamCam
-    try {
-        $tempPics = Get-ChildItem -Path $env:TEMP -Filter "*Webcam*" -ErrorAction SilentlyContinue |
-                    Where-Object { (Get-Date) - $_.LastWriteTime -lt (New-TimeSpan -Minutes 15) } |
-                    Sort-Object LastWriteTime -Descending | Select-Object -First 1
-
-        if ($tempPics) {
-            $bytes = [System.IO.File]::ReadAllBytes($tempPics.FullName)
-            $base64 = [Convert]::ToBase64String($bytes)
-            return "data:image/png;base64,$base64"
-        }
-    } catch {}
-
-    return $null
+    # 3. Fallback terakhir layar penuh
+    $full = Capture-CleanScreenJpeg -TargetWidth 640 -Quality 50
+    return $full
 }
 
 function Take-ScreenThumbnail {
@@ -851,17 +838,27 @@ function Handle-Task {
             }
         }
         "camera_snapshot" {
-            $isCrop = $true
-            if ($params -and ($params.crop -eq $false)) { $isCrop = $false }
-            $camImg = Capture-CameraSnapshot -CropToCam $isCrop
+            $camImg = Capture-CameraSnapshot -CropToCam $true
             if ($camImg) {
                 $result.success = $true
-                $result.message = "Foto kamera siswa berhasil diambil."
+                $result.message = "Foto fokus wajah siswa berhasil diambil."
                 $result.cameraImage = $camImg
             } else {
                 $result.success = $false
                 $result.message = "Kamera tidak aktif atau gagal mengambil gambar."
             }
+        }
+        "start_live_stream" {
+            $Script:IsLiveStreaming = $true
+            $camImg = Capture-CameraSnapshot -CropToCam $true
+            $result.success = $true
+            $result.message = "Live streaming kamera fokus wajah aktif."
+            $result.cameraImage = $camImg
+        }
+        "stop_live_stream" {
+            $Script:IsLiveStreaming = $false
+            $result.success = $true
+            $result.message = "Live streaming kamera dimatikan."
         }
         "shutdown" {
             $sec = if ($params.seconds) { [int]$params.seconds } else { 30 }
@@ -926,6 +923,7 @@ $serverUrl = Discover-Server
 $Script:ActiveServerUrl = $serverUrl
 
 $pendingResults = @()
+$Script:IsLiveStreaming = $false
 
 while ($true) {
     try {
@@ -1007,6 +1005,30 @@ while ($true) {
             }
         }
 
+        # Jika mode Live Stream aktif, kirim stream frame beruntun (3-4 FPS)
+        if ($Script:IsLiveStreaming) {
+            for ($k = 0; $k -lt 3; $k++) {
+                $liveFrame = Capture-CameraSnapshot -CropToCam $true
+                if ($liveFrame) {
+                    try {
+                        $framePayload = @{
+                            clientId = $Script:ClientId
+                            image = $liveFrame
+                            webcamName = $camInfo.Name
+                        } | ConvertTo-Json -Compress
+
+                        Invoke-RestMethod -Uri "$($Script:ActiveServerUrl)/api/agent/live-frame" `
+                                          -Method Post `
+                                          -Body $framePayload `
+                                          -ContentType 'application/json' `
+                                          -TimeoutSec 2 `
+                                          -ErrorAction SilentlyContinue | Out-Null
+                    } catch {}
+                }
+                Start-Sleep -Milliseconds 250
+            }
+        }
+
     } catch {
         # Jika gagal menghubungi server, coba temukan kembali server
         Write-Warning "[Agent] Terputus dari server ($($Script:ActiveServerUrl)): $($_.Exception.Message)"
@@ -1014,5 +1036,6 @@ while ($true) {
         $Script:ActiveServerUrl = Discover-Server
     }
 
-    Start-Sleep -Milliseconds ([int]($Script:Config.pollIntervalSeconds * 1000))
+    $sleepMs = if ($Script:IsLiveStreaming) { 400 } else { [int]($Script:Config.pollIntervalSeconds * 1000) }
+    Start-Sleep -Milliseconds $sleepMs
 }

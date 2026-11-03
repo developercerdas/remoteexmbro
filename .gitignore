@@ -2,8 +2,11 @@
 server/node_modules/
 node_modules/
 
-# Binaries
+# Binaries & archives
 *.exe
+*.rar
+*.zip
+EXAMBRO/
 
 # Logs
 *.log

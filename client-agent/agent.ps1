@@ -40,8 +40,6 @@ Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
 $win32Code = @"
 using System;
 using System.Text;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
 public class Win32 {
@@ -381,6 +379,9 @@ function Find-ExamBrowserExe {
     $userDesktop = [Environment]::GetFolderPath('Desktop')
     if ($userDesktop) { $dirsToCheck += $userDesktop }
     $dirsToCheck += "C:\Users\Public\Desktop"
+    $dirsToCheck += "D:\APLIKASI\RemoteExambro\EXAMBRO"
+    $dirsToCheck += "C:\EXAMBRO"
+    $dirsToCheck += "D:\EXAMBRO"
 
     # 1. Periksa folder langsung
     foreach ($d in $dirsToCheck) {
@@ -390,10 +391,10 @@ function Find-ExamBrowserExe {
         }
     }
 
-    # 2. Cari di subfolder Desktop / Downloads / ANBK hingga kedalaman 3
+    # 2. Cari di subfolder Desktop / Documents / Downloads / EXAMBRO hingga kedalaman 4
     foreach ($d in $dirsToCheck) {
         if ($d -and (Test-Path $d)) {
-            $f = Get-ChildItem -Path $d -Filter '*Exam*.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)exambrowser|exambro' } | Select-Object -First 1
+            $f = Get-ChildItem -Path $d -Filter '*Exam*.exe' -Recurse -Depth 4 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)exambrowser|exambro' } | Select-Object -First 1
             if ($f) { return $f.FullName }
         }
     }

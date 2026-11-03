@@ -920,6 +920,26 @@ function Handle-Task {
                 $result.message = "Skrip kosong."
             }
         }
+        "update_agent" {
+            try {
+                $scriptPath = $MyInvocation.MyCommand.Path
+                if (-not $scriptPath -or -not (Test-Path $scriptPath)) { $scriptPath = "C:\RemoteExambroAgent\agent.ps1" }
+                $downloadUrl = "$($Script:ActiveServerUrl)/agent.ps1"
+                Invoke-WebRequest -Uri $downloadUrl -OutFile "$scriptPath.new" -TimeoutSec 15
+                if (Test-Path "$scriptPath.new") {
+                    Move-Item -Path "$scriptPath.new" -Destination $scriptPath -Force
+                    $result.success = $true
+                    $result.message = "Agen berhasil diperbarui over-the-air ke versi terbaru."
+                    Start-Process powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$scriptPath`"" -WorkingDirectory (Split-Path -Parent $scriptPath)
+                    Start-Sleep -Milliseconds 600
+                    Stop-Process -Id $PID -Force
+                } else {
+                    $result.message = "Gagal mengunduh file pembaruan agen."
+                }
+            } catch {
+                $result.message = "Error pembaruan agen: $($_.Exception.Message)"
+            }
+        }
         default {
             $result.message = "Perintah '$cmd' tidak dikenali."
         }

@@ -22,6 +22,9 @@ set TARGET_DIR=C:\RemoteExambroAgent
 echo [1/4] Membuat direktori di %TARGET_DIR%...
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 
+:: Otomatis matikan Fast Startup agar Wake-on-LAN bekerja saat PC mati
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power" /v HiberbootEnabled /t REG_DWORD /d 0 /f >nul 2>&1
+
 echo [2/4] Menyalin file agen...
 copy /y "agent.ps1" "%TARGET_DIR%\" >nul
 copy /y "config.json" "%TARGET_DIR%\" >nul

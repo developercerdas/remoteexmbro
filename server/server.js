@@ -65,7 +65,32 @@ function getLocalLANIP() {
 
 const SERVER_IP = getLocalLANIP();
 
-// Wake-on-LAN (WoL) Magic Packet Sender
+// File penyimpanan data klien permanen (agar MAC tidak hilang saat PC mati)
+const CLIENTS_FILE = path.join(__dirname, 'clients_store.json');
+const fs = require('fs');
+
+function loadClientsStore() {
+  try {
+    if (fs.existsSync(CLIENTS_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(CLIENTS_FILE, 'utf8'));
+      raw.forEach((c) => {
+        c.online = false; // Saat server baru mulai, set awal offline
+        clients.set(c.clientId, c);
+      });
+      console.log(`[Store] Memuat ${clients.size} data klien tersimpan.`);
+    }
+  } catch (e) {}
+}
+
+function saveClientsStore() {
+  try {
+    fs.writeFileSync(CLIENTS_FILE, JSON.stringify(Array.from(clients.values()), null, 2));
+  } catch (e) {}
+}
+
+loadClientsStore();
+
+// Wake-on-LAN (WoL) Magic Packet Sender Tingkat Lanjut (Multi-Port & Multi-Broadcast)
 function sendWakeOnLAN(mac) {
   if (!mac) return false;
   const cleanMac = mac.replace(/[:-]/g, '');
@@ -78,16 +103,35 @@ function sendWakeOnLAN(mac) {
     macBytes.copy(magicPacket, 6 + i * 6);
   }
 
+  const ports = [9, 7]; // Standar WoL Port 9 dan Port 7
+  const ifaces = getAllActiveIPv4();
+
   const udpClient = dgram.createSocket('udp4');
   udpClient.bind(() => {
     udpClient.setBroadcast(true);
-    getAllActiveIPv4().forEach((iface) => {
-      udpClient.send(magicPacket, 0, magicPacket.length, 9, iface.broadcast, () => {});
-    });
-    udpClient.send(magicPacket, 0, magicPacket.length, 9, '255.255.255.255', () => {
-      try { udpClient.close(); } catch (e) {}
-    });
+
+    // Kirim 3x tembakan (burst) dengan jeda 100ms agar pasti diterima switch lab
+    let burstCount = 0;
+    const interval = setInterval(() => {
+      ports.forEach((port) => {
+        // Kirim ke directed broadcast setiap subnet (misal 10.10.11.255)
+        ifaces.forEach((iface) => {
+          udpClient.send(magicPacket, 0, magicPacket.length, port, iface.broadcast, () => {});
+        });
+        // Kirim ke global broadcast
+        udpClient.send(magicPacket, 0, magicPacket.length, port, '255.255.255.255', () => {});
+      });
+
+      burstCount++;
+      if (burstCount >= 3) {
+        clearInterval(interval);
+        setTimeout(() => {
+          try { udpClient.close(); } catch (e) {}
+        }, 300);
+      }
+    }, 120);
   });
+
   return true;
 }
 
@@ -205,6 +249,7 @@ app.post('/api/agent/heartbeat', (req, res) => {
   };
 
   clients.set(uniqueId, clientData);
+  saveClientsStore();
 
   if (isNew) {
     addLog('info', `Klien baru terhubung: ${clientData.hostname} (${clientData.ip})`);

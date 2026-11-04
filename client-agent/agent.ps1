@@ -118,6 +118,17 @@ public class Win32 {
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
     public const int SRCCOPY = 0x00CC0020;
 
     public static IntPtr CaptureDesktopHBitmap(out int width, out int height) {
@@ -740,10 +751,18 @@ function Capture-CleanScreenJpeg {
         }
 
         $hBitmap = [Win32]::CaptureHBitmap($X, $Y, $SourceWidth, $SourceHeight)
-        if ($hBitmap -eq [IntPtr]::Zero) { return $null }
+        $srcBmp = $null
 
-        $srcBmp = [System.Drawing.Image]::FromHbitmap($hBitmap)
-        [Win32]::DeleteObject($hBitmap) | Out-Null
+        if ($hBitmap -ne [IntPtr]::Zero) {
+            $srcBmp = [System.Drawing.Image]::FromHbitmap($hBitmap)
+            [Win32]::DeleteObject($hBitmap) | Out-Null
+        } else {
+            # GDI CopyFromScreen Fallback jika CaptureHBitmap bernilai null
+            $srcBmp = New-Object System.Drawing.Bitmap $SourceWidth, $SourceHeight
+            $fgfx = [System.Drawing.Graphics]::FromImage($srcBmp)
+            $fgfx.CopyFromScreen($X, $Y, 0, 0, (New-Object System.Drawing.Size($SourceWidth, $SourceHeight)))
+            $fgfx.Dispose()
+        }
 
         # Target size
         $targetH = [int]($SourceHeight * ($TargetWidth / $SourceWidth))
@@ -777,7 +796,35 @@ function Capture-CleanScreenJpeg {
 function Capture-CameraSnapshot {
     param([bool]$CropToCam = $true)
 
-    # 1. Potong murni kotak kamera wajah siswa (X=0, Y=33, Width=207, Height=154) - tanpa border hitam / tanpa bar biru
+    # 1. Deteksi dinamis koordinat jendela proses ExamCam di monitor
+    $camProc = Get-Process -Name 'ExamCam' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+    if ($camProc) {
+        $r = New-Object Win32+RECT
+        if ([Win32]::GetWindowRect($camProc.MainWindowHandle, [ref]$r)) {
+            $w = $r.Right - $r.Left
+            $h = $r.Bottom - $r.Top
+            if ($w -gt 50 -and $h -gt 50) {
+                $camCrop = Capture-CleanScreenJpeg -X ($r.Left + 2) -Y ($r.Top + 30) -SourceWidth ($w - 4) -SourceHeight ($h - 32) -TargetWidth 640 -Quality 75
+                if ($camCrop) { return $camCrop }
+            }
+        }
+    }
+
+    # 2. Deteksi jendela kamera / webcam dengan judul apapun yang aktif di Windows
+    $camTitleProc = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'Webcam|Camera|Kamera|ExamCam' -and $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+    if ($camTitleProc) {
+        $r = New-Object Win32+RECT
+        if ([Win32]::GetWindowRect($camTitleProc.MainWindowHandle, [ref]$r)) {
+            $w = $r.Right - $r.Left
+            $h = $r.Bottom - $r.Top
+            if ($w -gt 50 -and $h -gt 50) {
+                $camCrop = Capture-CleanScreenJpeg -X $r.Left -Y $r.Top -SourceWidth $w -SourceHeight $h -TargetWidth 640 -Quality 75
+                if ($camCrop) { return $camCrop }
+            }
+        }
+    }
+
+    # 3. Potong murni kotak kamera wajah siswa standar (X=0, Y=33, Width=207, Height=154)
     if ($CropToCam) {
         $camCrop = Capture-CleanScreenJpeg -X 0 -Y 33 -SourceWidth 207 -SourceHeight 154 -TargetWidth 640 -Quality 70
         if ($camCrop) {
@@ -785,13 +832,13 @@ function Capture-CameraSnapshot {
         }
     }
 
-    # 2. Fallback: kotak widget ExamCam penuh (X=0, Y=0, 220x195)
+    # 4. Fallback: kotak widget ExamCam penuh (X=0, Y=0, 220x195)
     $camWidget = Capture-CleanScreenJpeg -X 0 -Y 0 -SourceWidth 220 -SourceHeight 195 -TargetWidth 640 -Quality 70
     if ($camWidget) {
         return $camWidget
     }
 
-    # 3. Fallback terakhir layar penuh
+    # 5. Fallback terakhir: Layar penuh
     $full = Capture-CleanScreenJpeg -TargetWidth 640 -Quality 50
     return $full
 }
@@ -904,6 +951,106 @@ function Handle-Task {
                 $result.message = "Proses shutdown/restart berhasil dibatalkan."
             } catch {
                 $result.message = "Gagal membatalkan shutdown: $($_.Exception.Message)"
+            }
+        }
+        "lock_wallpaper" {
+            try {
+                $p = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+                if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
+                Set-ItemProperty -Path $p -Name 'NoChangingWallPaper' -Value 1 -Type DWord -Force
+                $p2 = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+                if (-not (Test-Path $p2)) { New-Item -Path $p2 -Force | Out-Null }
+                Set-ItemProperty -Path $p2 -Name 'NoChangingWallPaper' -Value 1 -Type DWord -Force
+                $p3 = 'HKCU:\Software\Policies\Microsoft\Windows\Personalization'
+                if (-not (Test-Path $p3)) { New-Item -Path $p3 -Force | Out-Null }
+                Set-ItemProperty -Path $p3 -Name 'NoChangingDesktopBackground' -Value 1 -Type DWord -Force
+                [System.Console]::Beep(1000, 200)
+                $result.success = $true
+                $result.message = "Wallpaper desktop berhasil dikunci permanen."
+            } catch {
+                $result.message = "Gagal kunci wallpaper: $($_.Exception.Message)"
+            }
+        }
+        "unlock_wallpaper" {
+            try {
+                $p = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+                if (Test-Path $p) { Remove-ItemProperty -Path $p -Name 'NoChangingWallPaper' -ErrorAction SilentlyContinue }
+                $p2 = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+                if (Test-Path $p2) { Remove-ItemProperty -Path $p2 -Name 'NoChangingWallPaper' -ErrorAction SilentlyContinue }
+                $p3 = 'HKCU:\Software\Policies\Microsoft\Windows\Personalization'
+                if (Test-Path $p3) { Remove-ItemProperty -Path $p3 -Name 'NoChangingDesktopBackground' -ErrorAction SilentlyContinue }
+                [System.Console]::Beep(1200, 200)
+                $result.success = $true
+                $result.message = "Kunci wallpaper desktop berhasil dibuka."
+            } catch {
+                $result.message = "Gagal buka kunci wallpaper: $($_.Exception.Message)"
+            }
+        }
+        "lock_installer" {
+            try {
+                $k = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer'
+                if (-not (Test-Path $k)) { New-Item -Path $k -Force | Out-Null }
+                Set-ItemProperty -Path $k -Name 'DisableMSI' -Value 2 -Type DWord -Force
+                [System.Console]::Beep(1000, 200)
+                $result.success = $true
+                $result.message = "Instalasi software baru (.msi) berhasil diblokir."
+            } catch {
+                $result.message = "Gagal blokir instalasi: $($_.Exception.Message)"
+            }
+        }
+        "unlock_installer" {
+            try {
+                $k = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer'
+                if (Test-Path $k) { Remove-ItemProperty -Path $k -Name 'DisableMSI' -ErrorAction SilentlyContinue }
+                [System.Console]::Beep(1200, 200)
+                $result.success = $true
+                $result.message = "Izin instalasi software (Mode Teknisi) berhasil dibuka."
+            } catch {
+                $result.message = "Gagal buka izin instalasi: $($_.Exception.Message)"
+            }
+        }
+        "send_message" {
+            try {
+                $rawMsg = if ($params.message) { $params.message } else { "Pemberitahuan dari Guru/Proktor" }
+                [System.Console]::Beep(1400, 250); [System.Console]::Beep(1800, 350)
+                Add-Type -AssemblyName System.Windows.Forms
+                [System.Windows.Forms.MessageBox]::Show($rawMsg, "PENGUMUMAN DARI PROKTOR", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                $result.success = $true
+                $result.message = "Pesan pengumuman berhasil ditampilkan di layar siswa."
+            } catch {
+                $result.message = "Gagal menampilkan pesan: $($_.Exception.Message)"
+            }
+        }
+        "open_url" {
+            try {
+                $url = if ($params.url) { $params.url } else { "https://google.com" }
+                Start-Process $url
+                $result.success = $true
+                $result.message = "Berhasil membuka halaman: $url"
+            } catch {
+                $result.message = "Gagal membuka url: $($_.Exception.Message)"
+            }
+        }
+        "lock_screen" {
+            try {
+                Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'LabScreenLock' } | Stop-Process -Force
+                $rawMsg = if ($params.message) { $params.message } else { "Layar dikunci sementara oleh Guru / Proktor.`nHarap perhatikan penjelasan di depan kelas." }
+                $cleanMsg = $rawMsg.Replace('"', '`"')
+                $c = "Add-Type -AssemblyName System.Windows.Forms; `$f = New-Object System.Windows.Forms.Form; `$f.Text = 'LabScreenLock'; `$f.FormBorderStyle = 'None'; `$f.WindowState = 'Maximized'; `$f.TopMost = `$true; `$f.BackColor = [System.Drawing.Color]::FromArgb(15,23,42); `$l = New-Object System.Windows.Forms.Label; `$l.Text = `"🔒 LAYAR DIKUNCI`n`n$cleanMsg`"; `$l.Font = New-Object System.Drawing.Font('Segoe UI', 22, [System.Drawing.FontStyle]::Bold); `$l.ForeColor = [System.Drawing.Color]::FromArgb(56,189,248); `$l.Dock = 'Fill'; `$l.TextAlign = 'MiddleCenter'; `$f.Controls.Add(`$l); `$f.ShowDialog()"
+                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -Command `"$c`""
+                $result.success = $true
+                $result.message = "Layar siswa berhasil dikunci (Mode Perhatian Guru)."
+            } catch {
+                $result.message = "Gagal mengunci layar: $($_.Exception.Message)"
+            }
+        }
+        "unlock_screen" {
+            try {
+                Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'LabScreenLock' } | Stop-Process -Force
+                $result.success = $true
+                $result.message = "Kunci layar siswa berhasil dilepas."
+            } catch {
+                $result.message = "Gagal melepas kunci layar: $($_.Exception.Message)"
             }
         }
         "exec_custom" {

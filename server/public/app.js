@@ -1079,13 +1079,179 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Module Switcher Tabs (Mode Ujian, Manajemen Lab KBM, Keamanan & Teknisi)
+  const tabExam = document.getElementById('tabModuleExam');
+  const tabLab = document.getElementById('tabModuleLab');
+  const tabSecurity = document.getElementById('tabModuleSecurity');
+  const groupExam = document.getElementById('groupCommandsExam');
+  const groupLab = document.getElementById('groupCommandsLab');
+  const groupSecurity = document.getElementById('groupCommandsSecurity');
+
+  function setModuleTab(module) {
+    const tabs = [tabExam, tabLab, tabSecurity];
+    const groups = [groupExam, groupLab, groupSecurity];
+    tabs.forEach(t => {
+      if (t) {
+        t.className = 'module-tab flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-700/60';
+      }
+    });
+    groups.forEach(g => {
+      if (g) g.classList.add('hidden');
+    });
+
+    if (module === 'exam') {
+      if (tabExam) tabExam.className = 'module-tab active flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition bg-blue-600 text-white shadow-md shadow-blue-600/30';
+      if (groupExam) groupExam.classList.remove('hidden');
+    } else if (module === 'lab') {
+      if (tabLab) tabLab.className = 'module-tab active flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-md shadow-indigo-600/30';
+      if (groupLab) groupLab.classList.remove('hidden');
+    } else if (module === 'security') {
+      if (tabSecurity) tabSecurity.className = 'module-tab active flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition bg-amber-600 text-white shadow-md shadow-amber-600/30';
+      if (groupSecurity) groupSecurity.classList.remove('hidden');
+    }
+  }
+
+  if (tabExam) tabExam.addEventListener('click', () => setModuleTab('exam'));
+  if (tabLab) tabLab.addEventListener('click', () => setModuleTab('lab'));
+  if (tabSecurity) tabSecurity.addEventListener('click', () => setModuleTab('security'));
+
+  // Lab Module Command Handlers
+  const btnLockScreen = document.getElementById('btnMassLockScreen');
+  if (btnLockScreen) {
+    btnLockScreen.addEventListener('click', () => {
+      document.getElementById('modalLockScreen').classList.remove('hidden');
+    });
+  }
+
+  const btnConfirmLock = document.getElementById('btnConfirmLockScreen');
+  if (btnConfirmLock) {
+    btnConfirmLock.addEventListener('click', () => {
+      const msg = document.getElementById('lockScreenMessageInput').value.trim();
+      sendCommand('lock_screen', null, { message: msg });
+      document.getElementById('modalLockScreen').classList.add('hidden');
+    });
+  }
+
+  const btnUnlockScreen = document.getElementById('btnMassUnlockScreen');
+  if (btnUnlockScreen) {
+    btnUnlockScreen.addEventListener('click', () => {
+      sendCommand('unlock_screen');
+    });
+  }
+
+  const btnSendMsg = document.getElementById('btnMassSendMessage');
+  if (btnSendMsg) {
+    btnSendMsg.addEventListener('click', () => {
+      document.getElementById('modalSendMessage').classList.remove('hidden');
+    });
+  }
+
+  const btnConfirmSendMsg = document.getElementById('btnConfirmSendMessage');
+  if (btnConfirmSendMsg) {
+    btnConfirmSendMsg.addEventListener('click', () => {
+      const msg = document.getElementById('sendMessageInput').value.trim();
+      if (!msg) {
+        alert('Tulis pesan yang ingin dikirim!');
+        return;
+      }
+      sendCommand('send_message', null, { message: msg });
+      document.getElementById('modalSendMessage').classList.add('hidden');
+    });
+  }
+
+  const btnOpenUrl = document.getElementById('btnMassOpenUrl');
+  if (btnOpenUrl) {
+    btnOpenUrl.addEventListener('click', () => {
+      document.getElementById('modalOpenUrl').classList.remove('hidden');
+    });
+  }
+
+  const btnConfirmOpenUrl = document.getElementById('btnConfirmOpenUrl');
+  if (btnConfirmOpenUrl) {
+    btnConfirmOpenUrl.addEventListener('click', () => {
+      const url = document.getElementById('openUrlInput').value.trim();
+      if (!url) {
+        alert('Masukkan URL alamat web!');
+        return;
+      }
+      sendCommand('open_url', null, { url });
+      document.getElementById('modalOpenUrl').classList.add('hidden');
+    });
+  }
+
+  const btnScreenLab = document.getElementById('btnMassScreenshotLab');
+  if (btnScreenLab) {
+    btnScreenLab.addEventListener('click', () => sendCommand('screenshot'));
+  }
+
+  const btnCamLab = document.getElementById('btnMassCameraLab');
+  if (btnCamLab) {
+    btnCamLab.addEventListener('click', () => {
+      const onlineClients = state.clients.filter((c) => c.online);
+      if (onlineClients.length > 0) {
+        const target = onlineClients[0];
+        sendCommand('camera_snapshot', [target.clientId]);
+        openCameraModal(target);
+      } else {
+        alert('Tidak ada komputer klien yang sedang online.');
+      }
+    });
+  }
+
+  // Security Module Command Handlers
+  const btnLockWall = document.getElementById('btnMassLockWallpaper');
+  if (btnLockWall) {
+    btnLockWall.addEventListener('click', () => {
+      if (confirm('Kunci wallpaper desktop di seluruh PC klien agar tidak bisa diganti oleh siswa?')) {
+        sendCommand('lock_wallpaper');
+      }
+    });
+  }
+
+  const btnUnlockWall = document.getElementById('btnMassUnlockWallpaper');
+  if (btnUnlockWall) {
+    btnUnlockWall.addEventListener('click', () => {
+      if (confirm('Buka kunci wallpaper desktop di seluruh PC klien?')) {
+        sendCommand('unlock_wallpaper');
+      }
+    });
+  }
+
+  const btnLockInst = document.getElementById('btnMassLockInstaller');
+  if (btnLockInst) {
+    btnLockInst.addEventListener('click', () => {
+      if (confirm('Blokir proses instalasi software baru (.msi / setup) di seluruh PC klien?')) {
+        sendCommand('lock_installer');
+      }
+    });
+  }
+
+  const btnUnlockInst = document.getElementById('btnMassUnlockInstaller');
+  if (btnUnlockInst) {
+    btnUnlockInst.addEventListener('click', () => {
+      if (confirm('Buka izin instalasi software (Mode Teknisi) di seluruh PC klien?')) {
+        sendCommand('unlock_installer');
+      }
+    });
+  }
+
+  const btnOtaDeploy = document.getElementById('btnMassOtaDeploy');
+  if (btnOtaDeploy) {
+    btnOtaDeploy.addEventListener('click', () => {
+      if (confirm('PERINGATAN: Pastikan PC klien SEDANG TIDAK DIGUNAKAN SISWA UJIAN!\n\nApakah Anda yakin ingin memperbarui agen di semua PC klien secara serentak lewat jaringan sekarang?')) {
+        sendCommand('update_agent');
+        alert('Instruksi pembaruan OTA telah dikirim ke seluruh klien! Agen akan mengunduh versi terbaru dan memulai ulang otomatis dalam 10-15 detik.');
+      }
+    });
+  }
+
   // Modal Close buttons
   document.querySelectorAll('.modal-close').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
-      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript, #modalDeskMapping').forEach((m) => {
+      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript, #modalDeskMapping, #modalSendMessage, #modalOpenUrl, #modalLockScreen').forEach((m) => {
         m.classList.add('hidden');
       });
       if (activeCameraClientId) {

@@ -434,7 +434,57 @@ app.post('/api/command', (req, res) => {
   }
 
   const taskId = 'task-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-  const taskObj = { id: taskId, command, params };
+  
+  let finalCommand = command;
+  let finalParams = { ...params };
+
+  // Penerjemahan cerdas ke exec_custom agar fitur baru langsung jalan di agen klien aktif tanpa wajib update sekarang
+  if (command === 'lock_wallpaper') {
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `$p='HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\ActiveDesktop'; if(-not (Test-Path $p)){New-Item -Path $p -Force|Out-Null}; Set-ItemProperty -Path $p -Name 'NoChangingWallPaper' -Value 1 -Type DWord -Force; $p2='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\ActiveDesktop'; if(-not (Test-Path $p2)){New-Item -Path $p2 -Force|Out-Null}; Set-ItemProperty -Path $p2 -Name 'NoChangingWallPaper' -Value 1 -Type DWord -Force; $p3='HKCU:\\Software\\Policies\\Microsoft\\Windows\\Personalization'; if(-not (Test-Path $p3)){New-Item -Path $p3 -Force|Out-Null}; Set-ItemProperty -Path $p3 -Name 'NoChangingDesktopBackground' -Value 1 -Type DWord -Force; [System.Console]::Beep(1000, 200); Write-Output 'Wallpaper dikunci'`
+    };
+  } else if (command === 'unlock_wallpaper') {
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `$p='HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\ActiveDesktop'; if(Test-Path $p){Remove-ItemProperty -Path $p -Name 'NoChangingWallPaper' -ErrorAction SilentlyContinue}; $p2='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\ActiveDesktop'; if(Test-Path $p2){Remove-ItemProperty -Path $p2 -Name 'NoChangingWallPaper' -ErrorAction SilentlyContinue}; $p3='HKCU:\\Software\\Policies\\Microsoft\\Windows\\Personalization'; if(Test-Path $p3){Remove-ItemProperty -Path $p3 -Name 'NoChangingDesktopBackground' -ErrorAction SilentlyContinue}; [System.Console]::Beep(1200, 200); Write-Output 'Kunci Wallpaper dibuka'`
+    };
+  } else if (command === 'lock_installer') {
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `$k='HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer'; if(-not (Test-Path $k)){New-Item -Path $k -Force|Out-Null}; Set-ItemProperty -Path $k -Name 'DisableMSI' -Value 2 -Type DWord -Force; [System.Console]::Beep(1000, 200); Write-Output 'Instalasi diblokir'`
+    };
+  } else if (command === 'unlock_installer') {
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `$k='HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer'; if(Test-Path $k){Remove-ItemProperty -Path $k -Name 'DisableMSI' -ErrorAction SilentlyContinue}; [System.Console]::Beep(1200, 200); Write-Output 'Izin Instalasi dibuka'`
+    };
+  } else if (command === 'send_message') {
+    const rawMsg = (params.message || 'Pemberitahuan dari Guru/Proktor').replace(/[`"$]/g, ' ');
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `[System.Console]::Beep(1400, 250); [System.Console]::Beep(1800, 350); Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("${rawMsg}", "PENGUMUMAN DARI PROKTOR", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)`
+    };
+  } else if (command === 'open_url') {
+    const url = (params.url || 'https://google.com').replace(/[`"$]/g, '');
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `Start-Process "${url}"`
+    };
+  } else if (command === 'lock_screen') {
+    const rawMsg = (params.message || 'Layar dikunci sementara oleh Guru / Proktor.\\nHarap perhatikan penjelasan di depan kelas.').replace(/[`"$]/g, ' ');
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: 'try { Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "LabScreenLock" } | Stop-Process -Force } catch {}; $c = \'Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.Text = "LabScreenLock"; $f.FormBorderStyle = "None"; $f.WindowState = "Maximized"; $f.TopMost = $true; $f.BackColor = [System.Drawing.Color]::FromArgb(15,23,42); $l = New-Object System.Windows.Forms.Label; $l.Text = "🔒 LAYAR DIKUNCI\\n\\n' + rawMsg + '"; $l.Font = New-Object System.Drawing.Font("Segoe UI", 22, [System.Drawing.FontStyle]::Bold); $l.ForeColor = [System.Drawing.Color]::FromArgb(56,189,248); $l.Dock = "Fill"; $l.TextAlign = "MiddleCenter"; $f.Controls.Add($l); $f.ShowDialog()\'; Start-Process powershell.exe -ArgumentList (\'-WindowStyle Hidden -Command "\' + $c + \'"\')'
+    };
+  } else if (command === 'unlock_screen') {
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'LabScreenLock' } | Stop-Process -Force`
+    };
+  }
+
+  const taskObj = { id: taskId, command: finalCommand, params: finalParams };
 
   targetIds.forEach((cid) => {
     const canonicalId = resolveCanonicalId(cid);
@@ -454,6 +504,15 @@ app.post('/api/command', (req, res) => {
     cancel_shutdown: 'Batalkan Shutdown',
     screenshot: 'Ambil Tangkapan Layar',
     camera_snapshot: 'Ambil Foto Kamera Siswa',
+    lock_screen: 'Kunci Layar (Mode Perhatian)',
+    unlock_screen: 'Buka Kunci Layar',
+    send_message: 'Kirim Pesan Pengumuman',
+    open_url: 'Buka Halaman Web/Ujian',
+    lock_wallpaper: 'Kunci Wallpaper Desktop',
+    unlock_wallpaper: 'Buka Kunci Wallpaper',
+    lock_installer: 'Blokir Instalasi Software',
+    unlock_installer: 'Buka Izin Instalasi Software',
+    update_agent: 'Perbarui Agen Klien (OTA)',
     exec_custom: 'Jalankan Skrip Kustom'
   };
 
@@ -590,7 +649,8 @@ wss.on('connection', (ws) => {
 // Mulai Server
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
-  console.log(`🚀 Master Controller RemoteExambro Berjalan!`);
+  console.log(`🚀 Master Controller RemoteLab Pro Berjalan!`);
+  console.log(`🌐 Pusat Manajemen Lab & Kontrol CBT/Ujian`);
   console.log(`🌐 Akses Dashboard Lokal : http://localhost:${PORT}`);
   console.log(`🌐 Akses Jaringan Lab    : http://${SERVER_IP}:${PORT}`);
   console.log(`📡 Auto-Discovery UDP   : Port ${UDP_PORT}`);

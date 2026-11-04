@@ -1,35 +1,33 @@
-# 🚀 RemoteExambro - Sistem Kendali Jarak Jauh ExamBrowser Client
+# 🚀 RemoteLab Pro - Sistem Manajemen Lab Terpadu & Pusat Kontrol CBT/Ujian
 
-Aplikasi manajemen, kontrol, dan otomasi massal **ExamBrowser Client (ANBK / SNBT / CBT / TKA)** berbasis Web Dashboard untuk komputer Server Proktor dan Agen Ringan Mandiri (*zero-dependency*) untuk seluruh PC Klien Siswa di laboratorium komputer sekolah.
+Aplikasi manajemen, kontrol kelas, pemantauan, dan otomasi massal laboratorium komputer sekolah berbasis Web Dashboard untuk komputer Server Guru/Proktor dan Agen Ringan Mandiri (*zero-dependency*) untuk seluruh PC Klien Siswa di lab.
 
-Sistem ini terinspirasi dari alur otomasi `eriksihabudin/otomasi-exambrowser-action1`, namun dibangun menjadi **solusi mandiri (*self-hosted*)** tanpa ketergantungan pihak ketiga, dilengkapi antarmuka modern real-time, auto-discovery jaringan lokal, dan pemantau layar langsung.
+Aplikasi ini menggabungkan **Manajemen Lab Harian (KBM & Praktikum)**, **Keamanan Lab & Alat Teknisi (Kunci Wallpaper, Blokir Install, Pemeliharaan)**, serta **Mode Ujian Khusus (ExamBrowser ANBK, SNBT, CBT, & TKA)** dalam satu antarmuka terpadu.
 
 ---
 
-## 🌟 Fitur Utama
+## 🌟 3 Modul Utama Sistem
 
-1. **Otomasi Buka & Auto-RUN:**
-   * Membuka `ExamBrowser.exe` secara interaktif di sesi desktop siswa yang sedang aktif.
-   * Mendeteksi dan otomatis mengklik tombol **OK** jika muncul popup pembaruan (*autoupdate*).
-   * Otomatis mengklik tombol **RUN** via Windows UI Automation & fallback simulasi koordinat.
-2. **Dukungan Khusus Ujian Berkamera (Webcam Auto-Approval):**
-   * Mendeteksi perangkat kamera terpasang secara otomatis.
-   * Menyetujui dialog izin *"merekam aktifitas"* (`Yes` / `Ya`) seketika tanpa perlu disentuh siswa.
-3. **Tutup Aman (Graceful Exit):**
-   * Mengirim kombinasi tombol standar resmi `Ctrl + C + B` via Win32 API ke jendela ExamBrowser.
-   * Mencegah kerusakan sesi atau force-kill yang bisa merusak log lokal siswa.
-4. **Emergency Force Kill:**
-   * Menutup paksa proses `ExamBrowser.exe` atau `runningexam` jika terjadi error/hang tak terduga.
-5. **Pemantau Layar Klien (Live Screenshot):**
-   * Mengambil gambar layar siswa secara instan dan mengirim thumbnail ke dashboard proktor untuk memastikan seluruh siswa sudah masuk ke menu login ujian.
-6. **Manajemen Daya Massal (Shutdown & Restart):**
-   * Mematikan atau merestart seluruh PC lab dengan dialog peringatan hitung mundur (*countdown*).
-   * Fitur batalkan shutdown darurat jika salah pencet.
-7. **Zero-Dependency Client Agent (Tanpa Perlu Install Node.js di Klien):**
-   * Agen klien 100% menggunakan PowerShell native yang sudah bawaan Windows 7/8/10/11.
-   * Auto-Discovery via UDP broadcast (port 3001) sehingga IP server terdeteksi secara otomatis tanpa setting manual satu per satu.
-8. **Modern Real-Time Dashboard (WebSocket):**
-   * Menampilkan grid status PC klien, user yang login, status ExamBrowser, ketersediaan kamera, dan log aktivitas real-time.
+### 1. 🖥️ Manajemen Lab (KBM & Harian)
+* **Pemantauan Layar & Kamera Real-Time:** Memantau aktivitas layar dan kamera seluruh siswa secara visual.
+* **Kunci Layar (Mode Perhatian Siswa):** Menghitamkan dan mengunci layar monitor siswa saat guru sedang menjelaskan materi di depan kelas.
+* **Kirim Pesan / Pengumuman:** Mengirimkan notifikasi pesan instan ke layar seluruh komputer siswa.
+* **Buka Tautan / Web Bersama:** Membuka alamat website atau portal pembelajaran serentak di browser seluruh siswa.
+* **Pemetaan Denah Meja Lab:** Menata urutan PC di dashboard sesuai nomor meja fisik (Meja 01 s/d 36) dengan fitur uji kedip layar (*Flash & Audio Beep*).
+
+### 2. 📝 Mode Ujian (ExamBrowser ANBK & CBT)
+* **Otomasi Buka & Auto-RUN:** Membuka `ExamBrowser.exe` secara interaktif dan otomatis mengklik tombol **RUN** serta konfirmasi update.
+* **Dukungan Ujian Berkamera (Webcam Auto-Approval):** Menyetujui dialog izin merekam aktivitas kamera secara otomatis.
+* **Tutup Aman (Graceful Exit):** Mengirim kombinasi tombol resmi `Ctrl + C + B` untuk menutup ExamBrowser tanpa merusak data sesi ujian.
+* **Emergency Force Kill:** Menutup paksa proses jika terjadi error/hang tak terduga.
+
+### 3. 🛡️ Keamanan & Pemeliharaan Teknisi
+* **Kunci Wallpaper Desktop:** Mengunci background desktop agar siswa tidak bisa mengganti wallpaper sembarangan.
+* **Blokir Instalasi Software Baru:** Memblokir eksekusi installer `.msi` dan file setup sehingga siswa tidak bisa menginstal game atau software liar.
+* **Mode Teknisi (1-Klik Buka Kunci):** Teknisi dapat membuka izin instalasi dan wallpaper kapan saja dari server untuk keperluan maintenance.
+* **Wake-on-LAN (WoL):** Menyalakan seluruh PC lab secara serentak dari server.
+* **Shutdown & Restart Terjadwal:** Mematikan atau merestart seluruh komputer lab dengan peringatan hitung mundur.
+* **Pembaruan Agen Otomatis OTA (*Over-The-Air*):** Memperbarui skrip agen di seluruh PC klien serentak lewat jaringan tanpa perlu menggunakan flashdisk.
 
 ---
 

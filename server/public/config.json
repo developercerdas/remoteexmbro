@@ -1,0 +1,19 @@
+{
+  "serverIp": "10.10.11.85",
+  "serverPort": 3000,
+  "fallbackServerIp": "10.10.11.85",
+  "pollIntervalSeconds": 1.5,
+  "defaultExamBrowserDir": "C:\\ExamBrowserClient",
+  "searchDirectories": [
+    "C:\\Users\\Administrator\\Documents",
+    "C:\\Users\\Administrator\\Downloads",
+    "C:\\ExamBrowserClient",
+    "C:\\ExamBrowser",
+    "C:\\ANBK",
+    "D:\\ExamBrowserClient",
+    "D:\\ExamBrowser",
+    "D:\\ANBK",
+    "C:\\Users\\Public\\Desktop"
+  ],
+  "autoApproveWebcam": true
+}

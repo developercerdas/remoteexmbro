@@ -245,8 +245,8 @@ function updateSelectionBanner() {
 function renderMetrics() {
   const total = state.clients.length;
   const online = state.clients.filter((c) => c.online).length;
-  const running = state.clients.filter((c) => c.exambrowserRunning).length;
-  const webcam = state.clients.filter((c) => c.webcamAvailable).length;
+  const running = state.clients.filter((c) => c.online && c.exambrowserRunning).length;
+  const webcam = state.clients.filter((c) => c.online && c.webcamAvailable).length;
 
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statOnline').textContent = online;

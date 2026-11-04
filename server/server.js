@@ -265,6 +265,9 @@ setInterval(() => {
     const isOnline = (now - c.lastSeen) < CLIENT_TIMEOUT_MS;
     if (c.online !== isOnline) {
       c.online = isOnline;
+      if (!isOnline) {
+        c.exambrowserRunning = false;
+      }
       changed = true;
     }
   });
@@ -297,6 +300,14 @@ app.post('/api/agent/heartbeat', (req, res) => {
 
   // Gunakan MAC Address atau Hostname sebagai ID unik komputer fisik (mencegah duplikat)
   const uniqueId = mac ? ('PC_' + mac.replace(/[:-]/g, '')) : (hostname || clientId);
+
+  // Bersihkan entri duplikat lama jika PC ini sebelumnya terdaftar dengan ID berbasis Hostname/IP lama
+  for (const [oldId, c] of clients.entries()) {
+    if (oldId !== uniqueId && (c.hostname === hostname || (mac && c.mac === mac))) {
+      clients.delete(oldId);
+      pendingTasks.delete(oldId);
+    }
+  }
 
   const isNew = !clients.has(uniqueId);
   const existing = clients.get(uniqueId) || {};

@@ -68,6 +68,67 @@ const SERVER_IP = getLocalLANIP();
 // File penyimpanan data klien permanen (agar MAC tidak hilang saat PC mati)
 const CLIENTS_FILE = path.join(__dirname, 'clients_store.json');
 const fs = require('fs');
+const crypto = require('crypto');
+const { spawn, exec } = require('child_process');
+
+// Konfigurasi & Integrasi Proktor Browser (Pusmendik ANBK / CBT)
+const PROKTOR_DIR = path.join(__dirname, '..', '64Bit_ProktorBrowser-26.0222');
+const PROKTOR_EXE = path.join(PROKTOR_DIR, 'proktorbrowser.exe');
+const PROKTOR_CONFIG = path.join(PROKTOR_DIR, 'resources', 'app', 'config', 'exambro.json');
+
+function evpBytesToKey(password, keyLen, ivLen) {
+  let d = Buffer.alloc(0);
+  let last = Buffer.alloc(0);
+  while (d.length < keyLen + ivLen) {
+    const h = crypto.createHash('md5');
+    if (last.length > 0) h.update(last);
+    h.update(password);
+    last = h.digest();
+    d = Buffer.concat([d, last]);
+  }
+  return { key: d.slice(0, keyLen), iv: d.slice(keyLen, keyLen + ivLen) };
+}
+
+function getProktorConfig() {
+  if (!fs.existsSync(PROKTOR_CONFIG)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(PROKTOR_CONFIG, 'utf8'));
+    const { key, iv } = evpBytesToKey(Buffer.from('super-rahasia'), 32, 16);
+    const decipher = crypto.createDecipheriv('aes-256-ctr', key, iv);
+    const dec = Buffer.concat([decipher.update(Buffer.from(raw.config.value, 'hex')), decipher.final()]);
+    return JSON.parse(dec.toString('utf8'));
+  } catch (e) {
+    console.error('Error reading proktor config:', e);
+    return null;
+  }
+}
+
+function saveProktorConfig(newConfig) {
+  try {
+    const { key, iv } = evpBytesToKey(Buffer.from('super-rahasia'), 32, 16);
+    const cipher = crypto.createCipheriv('aes-256-ctr', key, iv);
+    const str = JSON.stringify(newConfig, null, 2);
+    const enc = Buffer.concat([cipher.update(Buffer.from(str, 'utf8')), cipher.final()]);
+    const payload = {
+      config: {
+        alg: 'aes-256-ctr',
+        value: enc.toString('hex')
+      }
+    };
+    fs.writeFileSync(PROKTOR_CONFIG, JSON.stringify(payload, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Error saving proktor config:', e);
+    return false;
+  }
+}
+
+function checkProktorRunning(cb) {
+  exec('tasklist /fi "imagename eq proktorbrowser.exe" /fo csv /nh', (err, stdout) => {
+    if (err) return cb(false);
+    cb(stdout.toLowerCase().includes('proktorbrowser.exe'));
+  });
+}
 
 function loadClientsStore() {
   try {
@@ -627,6 +688,132 @@ app.delete('/api/clients', (req, res) => {
   }
   broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
   res.json({ success: true });
+});
+
+// --- PROKTOR BROWSER & ANBK / CBT INTEGRATION ---
+app.get('/api/proktor/status', (req, res) => {
+  const cfg = getProktorConfig();
+  checkProktorRunning((running) => {
+    res.json({
+      success: true,
+      isRunning: running,
+      config: cfg,
+      exeExists: fs.existsSync(PROKTOR_EXE)
+    });
+  });
+});
+
+app.post('/api/proktor/launch', (req, res) => {
+  if (!fs.existsSync(PROKTOR_EXE)) {
+    return res.status(404).json({ success: false, message: 'proktorbrowser.exe tidak ditemukan di folder server.' });
+  }
+  try {
+    const child = spawn(PROKTOR_EXE, [], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: PROKTOR_DIR
+    });
+    child.unref();
+    addLog('success', 'Aplikasi Proktor Browser berhasil diluncurkan di PC Server.');
+    res.json({ success: true });
+  } catch (err) {
+    addLog('error', `Gagal meluncurkan Proktor Browser: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/proktor/kill', (req, res) => {
+  exec('taskkill /f /im proktorbrowser.exe /t', (err) => {
+    addLog('warning', 'Aplikasi Proktor Browser di PC Server telah ditutup.');
+    res.json({ success: true });
+  });
+});
+
+app.post('/api/proktor/config', (req, res) => {
+  const { url, password, nameapps, versi } = req.body;
+  const current = getProktorConfig() || {};
+  const updated = {
+    password: password !== undefined ? String(password).trim() : (current.password || 'nj_fijar'),
+    versi: versi !== undefined ? String(versi).trim() : (current.versi || '26.0222'),
+    url: url !== undefined ? String(url).trim() : (current.url || 'https://anbk-proktor.pusmendik.kemendikdasmen.go.id/'),
+    nameapps: nameapps !== undefined ? String(nameapps).trim() : (current.nameapps || 'Proktor Browser 2026')
+  };
+  const ok = saveProktorConfig(updated);
+  if (ok) {
+    addLog('info', `Konfigurasi Proktor Browser diperbarui (URL Target: ${updated.url}).`);
+    res.json({ success: true, config: updated });
+  } else {
+    res.status(500).json({ success: false, message: 'Gagal mengenkripsi dan menyimpan konfigurasi proktor.' });
+  }
+});
+
+// Broadcast Rilis Token ke Siswa (Lab tertentu atau Semua Lab)
+app.post('/api/proktor/broadcast-token', (req, res) => {
+  const { token, lab, note } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'Token ujian wajib diisi!' });
+  }
+  const cleanToken = String(token).trim().toUpperCase();
+  const subNote = note ? String(note).replace(/[`"$]/g, ' ') : 'Silakan masukkan token di halaman login ujian dan klik Mulai.';
+  const displayMsg = `📢 TOKEN UJIAN: ${cleanToken}\\n\\n${subNote}`;
+  
+  const taskId = 'task-token-' + Date.now();
+  const taskObj = {
+    id: taskId,
+    command: 'exec_custom',
+    params: {
+      script: `[System.Console]::Beep(1500, 250); [System.Console]::Beep(2000, 350); Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("${displayMsg}", "📢 TOKEN UJIAN DARI PROKTOR", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)`
+    }
+  };
+
+  let count = 0;
+  for (const [id, c] of clients.entries()) {
+    if (!lab || lab === 'ALL' || c.lab === lab) {
+      if (c.online) {
+        if (!pendingTasks.has(id)) {
+          pendingTasks.set(id, []);
+        }
+        pendingTasks.get(id).push(taskObj);
+        count++;
+      }
+    }
+  }
+
+  addLog('success', `Token Ujian [ ${cleanToken} ] berhasil disiarkan ke ${count} komputer klien (${lab || 'Semua Lab'}).`);
+  res.json({ success: true, count, token: cleanToken });
+});
+
+// Reset Sesi Siswa (Kill ExamBrowser + Auto Launch Ulang Bersih)
+app.post('/api/client/reset-session', (req, res) => {
+  const { clientId } = req.body;
+  const canonicalId = resolveCanonicalId(clientId);
+  const clientData = clients.get(canonicalId);
+  if (!clientData) {
+    return res.status(404).json({ success: false, message: 'Klien tidak ditemukan.' });
+  }
+
+  // 1. Force kill
+  const killTask = {
+    id: 'task-reset-kill-' + Date.now(),
+    command: 'kill_force',
+    params: {}
+  };
+  if (!pendingTasks.has(canonicalId)) pendingTasks.set(canonicalId, []);
+  pendingTasks.get(canonicalId).push(killTask);
+
+  // 2. Launch Auto CBT setelah 2.5 detik
+  setTimeout(() => {
+    const launchTask = {
+      id: 'task-reset-launch-' + Date.now(),
+      command: 'launch_standard',
+      params: {}
+    };
+    if (!pendingTasks.has(canonicalId)) pendingTasks.set(canonicalId, []);
+    pendingTasks.get(canonicalId).push(launchTask);
+  }, 2500);
+
+  addLog('warning', `Reset sesi otomatis dikirim ke ${clientData.hostname} (Meja ${clientData.deskNumber || '-'}). Exambrowser ditutup dan diluncurkan ulang.`);
+  res.json({ success: true, hostname: clientData.hostname });
 });
 
 app.get('/api/logs', (req, res) => {

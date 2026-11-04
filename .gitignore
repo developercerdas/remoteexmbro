@@ -7,6 +7,8 @@ node_modules/
 *.rar
 *.zip
 EXAMBRO/
+64Bit_ProktorBrowser*/
+PROKTOR/
 
 # Logs
 *.log

@@ -437,6 +437,11 @@ function renderClients() {
             <i class="ph-bold ph-camera text-sm"></i>
           </button>
 
+          <!-- Reset Sesi Siswa (Kill + Auto Launch Ulang Bersih) -->
+          <button data-action="reset-session" data-client-id="${c.clientId}" title="🔄 Reset Sesi Siswa (Tutup Paksa & Luncurkan Ulang Bersih saat Siswa Macet)" class="btn-card-action p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs transition active:scale-95">
+            <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i>
+          </button>
+
           <!-- Pantau Kamera -->
           <button data-action="camera" data-client-id="${c.clientId}" title="Pantau Kamera Siswa" class="btn-card-action px-2.5 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-semibold flex items-center gap-1.5 transition">
             <i class="ph-bold ph-webcam text-sm"></i> Kamera
@@ -506,6 +511,25 @@ function attachCardEvents() {
           break;
         case 'quick-edit-desk':
           promptQuickEditDesk(clientId);
+          break;
+        case 'reset-session':
+          const rClient = state.clients.find((c) => c.clientId === clientId);
+          const rHost = rClient ? rClient.hostname : clientId;
+          const rDesk = rClient && rClient.deskNumber ? `(Meja ${rClient.deskNumber})` : '';
+          if (confirm(`Reset sesi ujian di PC ${rHost} ${rDesk}?\n\nExamBrowser akan ditutup paksa dan diluncurkan ulang secara otomatis agar sesi ujian siswa kembali fresh.`)) {
+            fetch('/api/client/reset-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clientId })
+            })
+            .then(res => res.json())
+            .then(d => {
+              if (d.success) {
+                alert(`Perintah reset sesi telah dikirim ke ${d.hostname}! ExamBrowser sedang memulai ulang.`);
+              }
+            })
+            .catch(err => alert('Gagal mengirim perintah reset: ' + err.message));
+          }
           break;
         case 'kill':
           if (confirm('Yakin ingin mematikan paksa ExamBrowser pada klien ini?')) {
@@ -1278,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
-      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript, #modalDeskMapping, #modalSendMessage, #modalOpenUrl, #modalLockScreen').forEach((m) => {
+      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript, #modalDeskMapping, #modalSendMessage, #modalOpenUrl, #modalLockScreen, #modalReleaseToken, #modalProktorControl').forEach((m) => {
         m.classList.add('hidden');
       });
       if (activeCameraClientId) {
@@ -1308,6 +1332,220 @@ document.addEventListener('DOMContentLoaded', () => {
     sendCommand('exec_custom', null, { script });
     document.getElementById('modalCustomScript').classList.add('hidden');
   });
+
+  // --- TOKEN UJIAN (RILIS TOKEN KE SISWA) ---
+  const modalToken = document.getElementById('modalReleaseToken');
+  const btnOpenToken = document.getElementById('btnOpenTokenModal');
+  const tokenInput = document.getElementById('tokenInput');
+  const btnConfirmToken = document.getElementById('btnConfirmBroadcastToken');
+  const txtLastToken = document.getElementById('txtLastToken');
+
+  // Load token terakhir dari localStorage jika ada
+  const savedLastToken = localStorage.getItem('lastExamToken');
+  if (savedLastToken && txtLastToken) {
+    txtLastToken.textContent = savedLastToken;
+  }
+
+  if (btnOpenToken) {
+    btnOpenToken.addEventListener('click', () => {
+      if (modalToken) {
+        modalToken.classList.remove('hidden');
+        if (tokenInput) {
+          tokenInput.focus();
+          tokenInput.select();
+        }
+        // Sinkronkan target lab dengan tab lab yang sedang aktif
+        const labSelect = document.getElementById('tokenLabTarget');
+        if (labSelect && state.currentLab) {
+          labSelect.value = state.currentLab;
+        }
+      }
+    });
+  }
+
+  if (tokenInput) {
+    tokenInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+    tokenInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (btnConfirmToken) btnConfirmToken.click();
+      }
+    });
+  }
+
+  if (btnConfirmToken) {
+    btnConfirmToken.addEventListener('click', () => {
+      const token = tokenInput ? tokenInput.value.trim().toUpperCase() : '';
+      if (!token) {
+        alert('Harap masukkan kode token ujian terlebih dahulu!');
+        if (tokenInput) tokenInput.focus();
+        return;
+      }
+      const lab = document.getElementById('tokenLabTarget') ? document.getElementById('tokenLabTarget').value : 'ALL';
+      const note = document.getElementById('tokenNoteInput') ? document.getElementById('tokenNoteInput').value.trim() : '';
+
+      btnConfirmToken.disabled = true;
+      btnConfirmToken.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Menyiarkan...';
+
+      fetch('/api/proktor/broadcast-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, lab, note })
+      })
+      .then(r => r.json())
+      .then(d => {
+        btnConfirmToken.disabled = false;
+        btnConfirmToken.innerHTML = '<i class="ph-bold ph-megaphone text-base"></i><span>Siarkan ke Siswa Sekarang</span>';
+        if (d.success) {
+          if (txtLastToken) txtLastToken.textContent = `${d.token} (${d.count} PC)`;
+          localStorage.setItem('lastExamToken', d.token);
+          alert(`Sukses! Token [ ${d.token} ] berhasil disiarkan ke ${d.count} komputer klien!`);
+          if (modalToken) modalToken.classList.add('hidden');
+        } else {
+          alert('Gagal menyiarkan token: ' + (d.message || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        btnConfirmToken.disabled = false;
+        btnConfirmToken.innerHTML = '<i class="ph-bold ph-megaphone text-base"></i><span>Siarkan ke Siswa Sekarang</span>';
+        alert('Terjadi kesalahan koneksi server: ' + err.message);
+      });
+    });
+  }
+
+  // --- PUSAT KONTROL PROKTOR ANBK / CBT ---
+  const modalProktor = document.getElementById('modalProktorControl');
+  const btnOpenProktor = document.getElementById('btnOpenProktorModal');
+  const badgeProktorRunning = document.getElementById('badgeProktorRunning');
+  const btnLaunchProktor = document.getElementById('btnLaunchProktorApp');
+  const btnKillProktor = document.getElementById('btnKillProktorApp');
+  const btnPresetOnline = document.getElementById('btnModePresetOnline');
+  const btnPresetSemiOnline = document.getElementById('btnModePresetSemiOnline');
+  const btnSaveProktorCfg = document.getElementById('btnSaveProktorConfig');
+
+  function refreshProktorStatus() {
+    if (!badgeProktorRunning) return;
+    fetch('/api/proktor/status')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.success) return;
+        if (d.isRunning) {
+          badgeProktorRunning.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+          badgeProktorRunning.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sedang Berjalan (Aktif)';
+        } else {
+          badgeProktorRunning.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-700/80 text-slate-300 border border-slate-600';
+          badgeProktorRunning.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span> Belum Berjalan';
+        }
+
+        if (d.config) {
+          const cfgUrl = document.getElementById('proktorCfgUrl');
+          const cfgPass = document.getElementById('proktorCfgPassword');
+          const cfgVer = document.getElementById('proktorCfgVersi');
+          const txtUrl = document.getElementById('txtPortalTargetUrl');
+          const linkWeb = document.getElementById('linkOpenPortalWeb');
+
+          if (cfgUrl) cfgUrl.value = d.config.url || '';
+          if (cfgPass) cfgPass.value = d.config.password || '';
+          if (cfgVer) cfgVer.value = d.config.versi || '';
+          if (txtUrl) txtUrl.textContent = d.config.url || '';
+          if (linkWeb) linkWeb.href = d.config.url || 'https://anbk-proktor.pusmendik.kemendikdasmen.go.id/';
+        }
+      })
+      .catch(() => {});
+  }
+
+  if (btnOpenProktor) {
+    btnOpenProktor.addEventListener('click', () => {
+      if (modalProktor) {
+        modalProktor.classList.remove('hidden');
+        refreshProktorStatus();
+      }
+    });
+  }
+
+  if (btnLaunchProktor) {
+    btnLaunchProktor.addEventListener('click', () => {
+      btnLaunchProktor.disabled = true;
+      btnLaunchProktor.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Meluncurkan...';
+      fetch('/api/proktor/launch', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          btnLaunchProktor.disabled = false;
+          btnLaunchProktor.innerHTML = '<i class="ph-bold ph-play"></i> Jalankan di Server';
+          if (d.success) {
+            alert('Aplikasi Proktor Browser berhasil dijalankan di PC Server!');
+            setTimeout(refreshProktorStatus, 1500);
+          } else {
+            alert('Gagal: ' + (d.message || 'Aplikasi tidak dapat dibuka'));
+          }
+        })
+        .catch(err => {
+          btnLaunchProktor.disabled = false;
+          btnLaunchProktor.innerHTML = '<i class="ph-bold ph-play"></i> Jalankan di Server';
+          alert('Kesalahan koneksi: ' + err.message);
+        });
+    });
+  }
+
+  if (btnKillProktor) {
+    btnKillProktor.addEventListener('click', () => {
+      if (confirm('Tutup paksa aplikasi Proktor Browser yang sedang berjalan di server?')) {
+        fetch('/api/proktor/kill', { method: 'POST' })
+          .then(r => r.json())
+          .then(() => {
+            setTimeout(refreshProktorStatus, 1000);
+          });
+      }
+    });
+  }
+
+  if (btnPresetOnline) {
+    btnPresetOnline.addEventListener('click', () => {
+      const cfgUrl = document.getElementById('proktorCfgUrl');
+      if (cfgUrl) cfgUrl.value = 'https://anbk-proktor.pusmendik.kemendikdasmen.go.id/';
+    });
+  }
+
+  if (btnPresetSemiOnline) {
+    btnPresetSemiOnline.addEventListener('click', () => {
+      const cfgUrl = document.getElementById('proktorCfgUrl');
+      if (cfgUrl) cfgUrl.value = 'http://192.168.0.200:8088/';
+    });
+  }
+
+  if (btnSaveProktorCfg) {
+    btnSaveProktorCfg.addEventListener('click', () => {
+      const url = document.getElementById('proktorCfgUrl') ? document.getElementById('proktorCfgUrl').value.trim() : '';
+      const password = document.getElementById('proktorCfgPassword') ? document.getElementById('proktorCfgPassword').value.trim() : '';
+      const versi = document.getElementById('proktorCfgVersi') ? document.getElementById('proktorCfgVersi').value.trim() : '';
+
+      btnSaveProktorCfg.disabled = true;
+      btnSaveProktorCfg.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Menyimpan...';
+
+      fetch('/api/proktor/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, password, versi })
+      })
+      .then(r => r.json())
+      .then(d => {
+        btnSaveProktorCfg.disabled = false;
+        btnSaveProktorCfg.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> Simpan Konfigurasi Proktor';
+        if (d.success) {
+          alert('Konfigurasi Proktor Browser (exambro.json) berhasil dienkripsi dan disimpan!');
+          refreshProktorStatus();
+        } else {
+          alert('Gagal menyimpan: ' + (d.message || 'Error'));
+        }
+      })
+      .catch(err => {
+        btnSaveProktorCfg.disabled = false;
+        btnSaveProktorCfg.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> Simpan Konfigurasi Proktor';
+        alert('Kesalahan koneksi: ' + err.message);
+      });
+    });
+  }
 
   // Clear Logs
   document.getElementById('btnClearLogs').addEventListener('click', () => {

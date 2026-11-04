@@ -6,6 +6,7 @@ let state = {
   clients: [],
   selectedIds: new Set(),
   filter: 'all',
+  sortBy: 'desk',
   searchQuery: '',
   logs: []
 };
@@ -176,7 +177,7 @@ async function sendCommand(command, target = null, params = {}) {
 // --- FILTER & SELECTION LOGIC ---
 
 function getFilteredClients() {
-  return state.clients.filter((c) => {
+  const list = state.clients.filter((c) => {
     // Filter tab
     if (state.filter === 'online' && !c.online) return false;
     if (state.filter === 'offline' && c.online) return false;
@@ -188,10 +189,35 @@ function getFilteredClients() {
       const matchName = (c.hostname || '').toLowerCase().includes(q);
       const matchIp = (c.ip || '').toLowerCase().includes(q);
       const matchUser = (c.username || '').toLowerCase().includes(q);
-      if (!matchName && !matchIp && !matchUser) return false;
+      const matchDesk = (c.deskNumber || '').toLowerCase().includes(q);
+      const matchMac = (c.mac || '').toLowerCase().includes(q);
+      if (!matchName && !matchIp && !matchUser && !matchDesk && !matchMac) return false;
     }
 
     return true;
+  });
+
+  const sortBy = state.sortBy || 'desk';
+  return list.sort((a, b) => {
+    if (sortBy === 'desk') {
+      const deskA = a.deskNumber ? a.deskNumber.trim() : '';
+      const deskB = b.deskNumber ? b.deskNumber.trim() : '';
+      if (deskA && deskB) {
+        return deskA.localeCompare(deskB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (deskA && !deskB) return -1;
+      if (!deskA && deskB) return 1;
+      return (a.hostname || '').localeCompare(b.hostname || '', undefined, { numeric: true });
+    } else if (sortBy === 'ip') {
+      const ipToNum = (ip) => {
+        const parts = (ip || '0.0.0.0').split('.').map(Number);
+        return ((parts[0] || 0) << 24) + ((parts[1] || 0) << 16) + ((parts[2] || 0) << 8) + (parts[3] || 0);
+      };
+      return ipToNum(a.ip) - ipToNum(b.ip);
+    } else if (sortBy === 'hostname') {
+      return (a.hostname || '').localeCompare(b.hostname || '', undefined, { numeric: true });
+    }
+    return 0;
   });
 }
 
@@ -267,6 +293,29 @@ function renderClients() {
     return `
       <div class="client-card bg-slate-800/80 border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-slate-700/70'} rounded-xl p-4 flex flex-col justify-between shadow-lg">
         <div>
+          <!-- TOP CARD BAR: DESK NUMBER & QUICK IDENTIFY -->
+          <div class="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-700/60">
+            <div class="flex items-center gap-1.5 min-w-0">
+              ${c.deskNumber ? `
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 truncate">
+                  <i class="ph-bold ph-identification-card"></i> ${escapeHtml(c.deskNumber)}
+                </span>
+                <button data-action="quick-edit-desk" data-client-id="${c.clientId}" title="Ubah Nomor Meja" class="btn-card-action text-slate-400 hover:text-white text-xs p-1 rounded hover:bg-slate-700/60 transition">
+                  <i class="ph-bold ph-pencil-simple"></i>
+                </button>
+              ` : `
+                <button data-action="quick-edit-desk" data-client-id="${c.clientId}" title="Klik untuk menentukan nomor meja" class="btn-card-action inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-800 hover:bg-slate-700 text-teal-400 border border-dashed border-teal-500/40 hover:border-teal-400 transition">
+                  <i class="ph-bold ph-plus"></i> Set Meja
+                </button>
+              `}
+            </div>
+
+            <!-- BUTTON CEK MEJA (FLASH & BEEP) -->
+            <button data-action="identify" data-client-id="${c.clientId}" title="📍 Bunyikan & Kedipkan Layar Komputer di Meja Ini" class="btn-card-action inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-sm transition active:scale-95">
+              <i class="ph-bold ph-broadcast text-xs"></i> <span>📍 Cek Meja</span>
+            </button>
+          </div>
+
           <!-- TOP CARD HEADER: CHECKBOX & HOSTNAME -->
           <div class="flex items-start justify-between gap-2 mb-3">
             <label class="flex items-center gap-2.5 cursor-pointer select-none flex-1">
@@ -422,6 +471,12 @@ function attachCardEvents() {
           break;
         case 'screenshot':
           sendCommand('screenshot', [clientId]);
+          break;
+        case 'identify':
+          identifyClient(clientId);
+          break;
+        case 'quick-edit-desk':
+          promptQuickEditDesk(clientId);
           break;
         case 'kill':
           if (confirm('Yakin ingin mematikan paksa ExamBrowser pada klien ini?')) {
@@ -598,6 +653,133 @@ function openPowerModal(type) {
   document.getElementById('modalPower').classList.remove('hidden');
 }
 
+// --- DESK MAPPING & IDENTIFY FUNCTIONS ---
+
+async function identifyClient(target) {
+  try {
+    const res = await fetch('/api/client/identify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error || 'Gagal mengirim sinyal cek meja');
+    }
+  } catch (err) {
+    console.error('Gagal kirim identifikasi:', err);
+    alert('Terjadi kesalahan jaringan saat mengirim sinyal identifikasi.');
+  }
+}
+
+async function updateClientDesk(clientId, deskNumber) {
+  try {
+    const res = await fetch('/api/client/desk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, deskNumber })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const c = state.clients.find((cl) => cl.clientId === clientId);
+      if (c) c.deskNumber = data.deskNumber;
+      renderClients();
+    }
+  } catch (err) {
+    console.error('Gagal update nomor meja:', err);
+  }
+}
+
+function promptQuickEditDesk(clientId) {
+  const client = state.clients.find((c) => c.clientId === clientId);
+  if (!client) return;
+  const current = client.deskNumber || '';
+  const input = prompt(`Masukkan Nomor Meja untuk ${client.hostname} (${client.ip}):\n(Contoh: Meja 01, Meja 12, atau kosongkan untuk menghapus)`, current);
+  if (input !== null) {
+    updateClientDesk(clientId, input.trim());
+  }
+}
+
+function openDeskModal() {
+  const modal = document.getElementById('modalDeskMapping');
+  if (!modal) return;
+  renderDeskMappingTable();
+  modal.classList.remove('hidden');
+}
+
+function renderDeskMappingTable() {
+  const tbody = document.getElementById('deskMappingTableBody');
+  const statusEl = document.getElementById('deskMappingStatus');
+  if (!tbody) return;
+
+  const sortedClients = [...state.clients].sort((a, b) => {
+    const deskA = a.deskNumber ? a.deskNumber.trim() : '';
+    const deskB = b.deskNumber ? b.deskNumber.trim() : '';
+    if (deskA && deskB) return deskA.localeCompare(deskB, undefined, { numeric: true });
+    if (deskA && !deskB) return -1;
+    if (!deskA && deskB) return 1;
+    const ipToNum = (ip) => {
+      const parts = (ip || '0.0.0.0').split('.').map(Number);
+      return ((parts[0] || 0) << 24) + ((parts[1] || 0) << 16) + ((parts[2] || 0) << 8) + (parts[3] || 0);
+    };
+    return ipToNum(a.ip) - ipToNum(b.ip);
+  });
+
+  if (statusEl) {
+    statusEl.textContent = `Total: ${sortedClients.length} komputer terdaftar (${sortedClients.filter((c) => c.online).length} online)`;
+  }
+
+  tbody.innerHTML = sortedClients.map((c, idx) => {
+    const isOnline = c.online;
+    return `
+      <tr class="hover:bg-slate-800/40 transition" data-client-id="${c.clientId}">
+        <td class="py-2.5 px-3 text-center text-slate-500 font-mono">${idx + 1}</td>
+        <td class="py-2 px-3">
+          <input type="text" 
+                 value="${escapeHtml(c.deskNumber || '')}" 
+                 placeholder="Misal: Meja ${idx + 1 < 10 ? '0' + (idx + 1) : (idx + 1)}" 
+                 data-client-id="${c.clientId}"
+                 class="desk-input w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-teal-300 font-bold text-xs focus:outline-none focus:border-teal-500">
+        </td>
+        <td class="py-2.5 px-3 font-semibold text-white">${escapeHtml(c.hostname)}</td>
+        <td class="py-2.5 px-3 font-mono text-slate-400">${escapeHtml(c.ip)}</td>
+        <td class="py-2.5 px-3">
+          ${isOnline 
+            ? '<span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online</span>' 
+            : '<span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500"><span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span> Offline</span>'}
+        </td>
+        <td class="py-2 px-3 text-center">
+          <button type="button" data-action="identify-row" data-client-id="${c.clientId}" title="Bunyikan & Munculkan nama di layar komputer ini" class="px-2.5 py-1 rounded bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold inline-flex items-center gap-1 transition active:scale-95">
+            <i class="ph-bold ph-broadcast"></i> Cek
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Handle Tab / Enter navigation between inputs
+  tbody.querySelectorAll('.desk-input').forEach((input, index, inputs) => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (inputs[index + 1]) {
+          inputs[index + 1].focus();
+          inputs[index + 1].select();
+        }
+      }
+    });
+  });
+
+  // Handle Identify button click inside modal
+  tbody.querySelectorAll('button[data-action="identify-row"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cid = btn.getAttribute('data-client-id');
+      identifyClient(cid);
+    });
+  });
+}
+
 // --- EVENT LISTENERS INITIALIZATION ---
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -756,6 +938,116 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Menu items inside dropdown
+  const btnMenuFlash = document.getElementById('btnMenuFlashAll');
+  if (btnMenuFlash) {
+    btnMenuFlash.addEventListener('click', () => {
+      if (confirm('Kirim sinyal identifikasi visual dan bunyi bip ke SEMUA layar komputer lab selama 4.5 detik?')) {
+        identifyClient('all');
+      }
+    });
+  }
+
+  // Tombol Buka Modal Pemetaan Meja
+  const btnOpenDesk = document.getElementById('btnOpenDeskModal');
+  if (btnOpenDesk) {
+    btnOpenDesk.addEventListener('click', openDeskModal);
+  }
+
+  // Sort Dropdown
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      state.sortBy = e.target.value;
+      renderClients();
+    });
+  }
+
+  // Flash All In Modal
+  const btnFlashModal = document.getElementById('btnFlashAllInModal');
+  if (btnFlashModal) {
+    btnFlashModal.addEventListener('click', () => {
+      identifyClient('all');
+    });
+  }
+
+  // Auto Sequence By IP
+  const btnAutoIp = document.getElementById('btnAutoDeskByIp');
+  if (btnAutoIp) {
+    btnAutoIp.addEventListener('click', () => {
+      const inputs = Array.from(document.querySelectorAll('#deskMappingTableBody .desk-input'));
+      const ipToNum = (ip) => {
+        const parts = (ip || '0.0.0.0').split('.').map(Number);
+        return ((parts[0] || 0) << 24) + ((parts[1] || 0) << 16) + ((parts[2] || 0) << 8) + (parts[3] || 0);
+      };
+      const sortedByIp = [...state.clients].sort((a, b) => ipToNum(a.ip) - ipToNum(b.ip));
+      inputs.forEach((input) => {
+        const cid = input.getAttribute('data-client-id');
+        const pos = sortedByIp.findIndex((c) => c.clientId === cid);
+        if (pos !== -1) {
+          const num = pos + 1;
+          input.value = `Meja ${num < 10 ? '0' + num : num}`;
+        }
+      });
+    });
+  }
+
+  // Auto Sequence By Hostname
+  const btnAutoHost = document.getElementById('btnAutoDeskByHostname');
+  if (btnAutoHost) {
+    btnAutoHost.addEventListener('click', () => {
+      const inputs = Array.from(document.querySelectorAll('#deskMappingTableBody .desk-input'));
+      const sortedByName = [...state.clients].sort((a, b) => (a.hostname || '').localeCompare(b.hostname || '', undefined, { numeric: true }));
+      inputs.forEach((input) => {
+        const cid = input.getAttribute('data-client-id');
+        const pos = sortedByName.findIndex((c) => c.clientId === cid);
+        if (pos !== -1) {
+          const num = pos + 1;
+          input.value = `Meja ${num < 10 ? '0' + num : num}`;
+        }
+      });
+    });
+  }
+
+  // Simpan Batch Pemetaan Meja
+  const btnSaveDesk = document.getElementById('btnSaveDeskMapping');
+  if (btnSaveDesk) {
+    btnSaveDesk.addEventListener('click', async () => {
+      const inputs = Array.from(document.querySelectorAll('#deskMappingTableBody .desk-input'));
+      const mappings = inputs.map((inp) => ({
+        clientId: inp.getAttribute('data-client-id'),
+        deskNumber: inp.value.trim()
+      }));
+
+      btnSaveDesk.disabled = true;
+      btnSaveDesk.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Menyimpan...';
+
+      try {
+        const res = await fetch('/api/client/batch-desk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mappings })
+        });
+        const data = await res.json();
+        if (data.success) {
+          mappings.forEach((m) => {
+            const cl = state.clients.find((c) => c.clientId === m.clientId);
+            if (cl) cl.deskNumber = m.deskNumber;
+          });
+          renderClients();
+          document.getElementById('modalDeskMapping').classList.add('hidden');
+          alert(`Berhasil menyimpan ${data.count} nomor meja!`);
+        } else {
+          alert(data.error || 'Gagal menyimpan pemetaan nomor meja');
+        }
+      } catch (err) {
+        alert('Kesalahan jaringan: ' + err.message);
+      } finally {
+        btnSaveDesk.disabled = false;
+        btnSaveDesk.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> Simpan Semua Pemetaan';
+      }
+    });
+  }
+
   document.getElementById('btnMenuWakeOnLan').addEventListener('click', () => {
     if (confirm('Kirim sinyal Wake-on-LAN (WoL) untuk menyalakan komputer target?')) {
       wakePCs();
@@ -793,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
-      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript').forEach((m) => {
+      document.querySelectorAll('#modalScreenshot, #modalCamera, #modalPower, #modalCustomScript, #modalDeskMapping').forEach((m) => {
         m.classList.add('hidden');
       });
       if (activeCameraClientId) {

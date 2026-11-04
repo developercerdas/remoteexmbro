@@ -246,6 +246,7 @@ app.post('/api/agent/heartbeat', (req, res) => {
     clientId: uniqueId,
     processId: clientId,
     hostname: hostname || existing.hostname || 'Client-PC',
+    deskNumber: existing.deskNumber || '',
     ip: ip || existing.ip || req.ip,
     mac: mac || existing.mac || '',
     username: username || 'Unknown',
@@ -406,6 +407,7 @@ function resolveCanonicalId(targetKey) {
     }
     if (c.ip && c.ip.toLowerCase() === keyStr) return id;
     if (c.hostname && c.hostname.toLowerCase() === keyStr) return id;
+    if (c.deskNumber && c.deskNumber.toLowerCase() === keyStr) return id;
   }
   return targetKey;
 }
@@ -459,6 +461,92 @@ app.post('/api/command', (req, res) => {
   addLog('warning', `Perintah '${humanCmd}' dikirim ke ${targetIds.length} klien.`);
 
   res.json({ success: true, taskId, targetCount: targetIds.length });
+});
+
+// Endpoint Cek Meja / Identifikasi Visual & Audio di Layar Klien
+app.post('/api/client/identify', (req, res) => {
+  const { target } = req.body;
+  let targetClients = [];
+
+  if (target === 'all' || !target) {
+    targetClients = Array.from(clients.values()).filter(c => c.online);
+  } else if (Array.isArray(target)) {
+    targetClients = target.map(t => clients.get(resolveCanonicalId(t))).filter(Boolean);
+  } else {
+    const c = clients.get(resolveCanonicalId(target));
+    if (c) targetClients = [c];
+  }
+
+  if (targetClients.length === 0) {
+    return res.status(400).json({ error: 'Tidak ada klien target online' });
+  }
+
+  targetClients.forEach(c => {
+    const deskLabel = c.deskNumber ? `NOMOR MEJA: ${c.deskNumber}` : 'IDENTIFIKASI MEJA PROKTOR';
+    const psScript = `try { [System.Console]::Beep(1200, 250); [System.Console]::Beep(1600, 400); } catch {}; Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.Text = 'IDENTIFIKASI PROKTOR'; $f.FormBorderStyle = 'FixedDialog'; $f.MaximizeBox = $false; $f.MinimizeBox = $false; $f.StartPosition = 'CenterScreen'; $f.TopMost = $true; $f.Size = New-Object System.Drawing.Size(560, 240); $f.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42); $p = New-Object System.Windows.Forms.Panel; $p.Dock = 'Fill'; $l1 = New-Object System.Windows.Forms.Label; $l1.Text = '📍 ${deskLabel}'; $l1.Font = New-Object System.Drawing.Font('Segoe UI', 16, [System.Drawing.FontStyle]::Bold); $l1.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248); $l1.Dock = 'Top'; $l1.Height = 55; $l1.TextAlign = 'MiddleCenter'; $l2 = New-Object System.Windows.Forms.Label; $l2.Text = "Komputer: $env:COMPUTERNAME\`nIP: ${c.ip || ''}"; $l2.Font = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Regular); $l2.ForeColor = [System.Drawing.Color]::White; $l2.Dock = 'Fill'; $l2.TextAlign = 'MiddleCenter'; $p.Controls.Add($l2); $p.Controls.Add($l1); $f.Controls.Add($p); $t = New-Object System.Windows.Forms.Timer; $t.Interval = 4500; $t.add_Tick({ $f.Close() }); $t.Start(); $f.ShowDialog()`;
+
+    const taskId = 'task-id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+    const taskObj = {
+      id: taskId,
+      command: 'exec_custom',
+      params: { script: psScript }
+    };
+
+    if (!pendingTasks.has(c.clientId)) {
+      pendingTasks.set(c.clientId, []);
+    }
+    pendingTasks.get(c.clientId).push(taskObj);
+  });
+
+  addLog('info', `Perintah Cek Meja (Flash/Beep) dikirim ke ${targetClients.length} komputer.`);
+  res.json({ success: true, count: targetClients.length });
+});
+
+// Endpoint Update Nomor Meja Tunggal
+app.post('/api/client/desk', (req, res) => {
+  const { clientId, deskNumber } = req.body;
+  if (!clientId) {
+    return res.status(400).json({ error: 'ClientId diperlukan' });
+  }
+
+  const canonicalId = resolveCanonicalId(clientId);
+  const clientData = clients.get(canonicalId);
+  if (!clientData) {
+    return res.status(404).json({ error: 'Klien tidak ditemukan' });
+  }
+
+  clientData.deskNumber = String(deskNumber || '').trim();
+  saveClientsStore();
+  broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
+  addLog('info', `Nomor Meja untuk ${clientData.hostname} diperbarui: '${clientData.deskNumber || '-'}'`);
+  res.json({ success: true, deskNumber: clientData.deskNumber });
+});
+
+// Endpoint Update Nomor Meja Massal (Batch Mapping)
+app.post('/api/client/batch-desk', (req, res) => {
+  const { mappings } = req.body; // Array of { clientId, deskNumber }
+  if (!Array.isArray(mappings)) {
+    return res.status(400).json({ error: 'Format data mappings harus berupa array' });
+  }
+
+  let updatedCount = 0;
+  mappings.forEach(item => {
+    if (!item.clientId) return;
+    const canonicalId = resolveCanonicalId(item.clientId);
+    const clientData = clients.get(canonicalId);
+    if (clientData) {
+      clientData.deskNumber = String(item.deskNumber || '').trim();
+      updatedCount++;
+    }
+  });
+
+  if (updatedCount > 0) {
+    saveClientsStore();
+    broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
+    addLog('info', `Pembaruan massal: ${updatedCount} nomor meja berhasil disimpan.`);
+  }
+
+  res.json({ success: true, count: updatedCount });
 });
 
 app.delete('/api/clients/:id', (req, res) => {

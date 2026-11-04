@@ -1148,17 +1148,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Module Switcher Tabs (Mode Ujian, Manajemen Lab KBM, Keamanan & Teknisi)
+  // Module Switcher Tabs (Mode Ujian, Manajemen Lab KBM)
   const tabExam = document.getElementById('tabModuleExam');
   const tabLab = document.getElementById('tabModuleLab');
-  const tabSecurity = document.getElementById('tabModuleSecurity');
   const groupExam = document.getElementById('groupCommandsExam');
   const groupLab = document.getElementById('groupCommandsLab');
-  const groupSecurity = document.getElementById('groupCommandsSecurity');
 
   function setModuleTab(module) {
-    const tabs = [tabExam, tabLab, tabSecurity];
-    const groups = [groupExam, groupLab, groupSecurity];
+    const tabs = [tabExam, tabLab];
+    const groups = [groupExam, groupLab];
     tabs.forEach(t => {
       if (t) {
         t.className = 'module-tab flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-700/60';
@@ -1174,15 +1172,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (module === 'lab') {
       if (tabLab) tabLab.className = 'module-tab active flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-md shadow-indigo-600/30';
       if (groupLab) groupLab.classList.remove('hidden');
-    } else if (module === 'security') {
-      if (tabSecurity) tabSecurity.className = 'module-tab active flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition bg-amber-600 text-white shadow-md shadow-amber-600/30';
-      if (groupSecurity) groupSecurity.classList.remove('hidden');
     }
   }
 
   if (tabExam) tabExam.addEventListener('click', () => setModuleTab('exam'));
   if (tabLab) tabLab.addEventListener('click', () => setModuleTab('lab'));
-  if (tabSecurity) tabSecurity.addEventListener('click', () => setModuleTab('security'));
 
   // Lab Module Command Handlers
   const btnLockScreen = document.getElementById('btnMassLockScreen');
@@ -1267,44 +1261,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Security Module Command Handlers
-  const btnLockWall = document.getElementById('btnMassLockWallpaper');
-  if (btnLockWall) {
-    btnLockWall.addEventListener('click', () => {
-      if (confirm('Kunci wallpaper desktop di seluruh PC klien agar tidak bisa diganti oleh siswa?')) {
-        sendCommand('lock_wallpaper');
-      }
-    });
-  }
-
-  const btnUnlockWall = document.getElementById('btnMassUnlockWallpaper');
-  if (btnUnlockWall) {
-    btnUnlockWall.addEventListener('click', () => {
-      if (confirm('Buka kunci wallpaper desktop di seluruh PC klien?')) {
-        sendCommand('unlock_wallpaper');
-      }
-    });
-  }
-
-  const btnLockInst = document.getElementById('btnMassLockInstaller');
-  if (btnLockInst) {
-    btnLockInst.addEventListener('click', () => {
-      if (confirm('Blokir proses instalasi software baru (.msi / setup) di seluruh PC klien?')) {
-        sendCommand('lock_installer');
-      }
-    });
-  }
-
-  const btnUnlockInst = document.getElementById('btnMassUnlockInstaller');
-  if (btnUnlockInst) {
-    btnUnlockInst.addEventListener('click', () => {
-      if (confirm('Buka izin instalasi software (Mode Teknisi) di seluruh PC klien?')) {
-        sendCommand('unlock_installer');
-      }
-    });
-  }
-
-  const btnOtaDeploy = document.getElementById('btnMassOtaDeploy');
+  // OTA Deployment Handler (Menu Teknisi)
+  const btnOtaDeploy = document.getElementById('btnMenuOtaDeploy') || document.getElementById('btnMassOtaDeploy');
   if (btnOtaDeploy) {
     btnOtaDeploy.addEventListener('click', () => {
       if (confirm('PERINGATAN: Pastikan PC klien SEDANG TIDAK DIGUNAKAN SISWA UJIAN!\n\nApakah Anda yakin ingin memperbarui agen di semua PC klien secara serentak lewat jaringan sekarang?')) {

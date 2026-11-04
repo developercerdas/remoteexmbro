@@ -117,10 +117,6 @@
         <i class="ph-bold ph-chalkboard-teacher text-base"></i>
         <span>🖥️ Manajemen Lab (KBM & Harian)</span>
       </button>
-      <button id="tabModuleSecurity" data-module="security" class="module-tab flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white hover:bg-slate-700/60">
-        <i class="ph-bold ph-shield-check text-base"></i>
-        <span>🛡️ Keamanan & Teknisi</span>
-      </button>
     </div>
 
     <!-- ACTION CONTROL BAR -->
@@ -198,6 +194,9 @@
               <button id="btnMenuCustomScript" class="w-full text-left px-4 py-2 text-sm text-cyan-300 hover:bg-cyan-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-code text-base"></i> Eksekusi Skrip PowerShell...
               </button>
+              <button id="btnMenuOtaDeploy" class="w-full text-left px-4 py-2 text-sm text-cyan-300 hover:bg-cyan-500/10 flex items-center gap-2" title="Deploy pembaruan agen ke semua PC serentak (Gunakan saat PC tidak dipakai siswa)">
+                <i class="ph-bold ph-cloud-arrow-up text-base"></i> Deploy Update Agen (OTA)...
+              </button>
               <button id="btnClearOffline" class="w-full text-left px-4 py-2 text-sm text-slate-400 hover:bg-slate-700 flex items-center gap-2">
                 <i class="ph-bold ph-trash text-base"></i> Hapus Klien Offline
               </button>
@@ -230,30 +229,6 @@
           <button id="btnMassCameraLab" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-medium text-sm transition active:scale-95">
             <i class="ph-bold ph-webcam text-base"></i>
             <span>Pantau Kamera</span>
-          </button>
-        </div>
-
-        <!-- MODULE 3: KEAMANAN & TEKNISI COMMANDS -->
-        <div id="groupCommandsSecurity" class="module-command-group hidden flex flex-wrap items-center gap-2">
-          <button id="btnMassLockWallpaper" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-sm transition shadow-lg shadow-amber-600/20 active:scale-95">
-            <i class="ph-bold ph-image text-base"></i>
-            <span>🖼️ Kunci Wallpaper</span>
-          </button>
-          <button id="btnMassUnlockWallpaper" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium text-sm transition active:scale-95">
-            <i class="ph-bold ph-arrow-counter-clockwise text-base"></i>
-            <span>Buka Wallpaper</span>
-          </button>
-          <button id="btnMassLockInstaller" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-sm transition shadow-lg shadow-rose-600/20 active:scale-95">
-            <i class="ph-bold ph-prohibit text-base"></i>
-            <span>🚫 Blokir Install Software</span>
-          </button>
-          <button id="btnMassUnlockInstaller" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition shadow-lg shadow-emerald-600/20 active:scale-95">
-            <i class="ph-bold ph-wrench text-base"></i>
-            <span>🟢 Buka Izin (Mode Teknisi)</span>
-          </button>
-          <button id="btnMassOtaDeploy" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-sm transition shadow-lg shadow-cyan-600/30 active:scale-95" title="Deploy pembaruan agen ke semua PC serentak lewat jaringan (Jalankan saat PC TIDAK sedang dipakai)">
-            <i class="ph-bold ph-cloud-arrow-up text-base"></i>
-            <span>🚀 Deploy Update OTA</span>
           </button>
         </div>
 

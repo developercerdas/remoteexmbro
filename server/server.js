@@ -246,6 +246,7 @@ app.post('/api/agent/heartbeat', (req, res) => {
     clientId: uniqueId,
     processId: clientId,
     hostname: hostname || existing.hostname || 'Client-PC',
+    labName: req.body.labName || existing.labName || 'C1',
     deskNumber: existing.deskNumber || '',
     ip: ip || existing.ip || req.ip,
     mac: mac || existing.mac || '',

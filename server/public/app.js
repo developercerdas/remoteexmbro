@@ -6,6 +6,7 @@ let state = {
   clients: [],
   selectedIds: new Set(),
   filter: 'all',
+  selectedLab: 'all',
   sortBy: 'desk',
   searchQuery: '',
   logs: []
@@ -178,7 +179,13 @@ async function sendCommand(command, target = null, params = {}) {
 
 function getFilteredClients() {
   const list = state.clients.filter((c) => {
-    // Filter tab
+    // Filter Lab / Ruang
+    if (state.selectedLab && state.selectedLab !== 'all') {
+      const clientLab = (c.labName || 'C1').toUpperCase();
+      if (clientLab !== state.selectedLab.toUpperCase()) return false;
+    }
+
+    // Filter tab status
     if (state.filter === 'online' && !c.online) return false;
     if (state.filter === 'offline' && c.online) return false;
     if (state.filter === 'running' && !c.exambrowserRunning) return false;
@@ -191,7 +198,8 @@ function getFilteredClients() {
       const matchUser = (c.username || '').toLowerCase().includes(q);
       const matchDesk = (c.deskNumber || '').toLowerCase().includes(q);
       const matchMac = (c.mac || '').toLowerCase().includes(q);
-      if (!matchName && !matchIp && !matchUser && !matchDesk && !matchMac) return false;
+      const matchLab = (c.labName || '').toLowerCase().includes(q);
+      if (!matchName && !matchIp && !matchUser && !matchDesk && !matchMac && !matchLab) return false;
     }
 
     return true;
@@ -244,6 +252,19 @@ function renderMetrics() {
   document.getElementById('statOnline').textContent = online;
   document.getElementById('statExamRunning').textContent = running;
   document.getElementById('statWebcam').textContent = webcam;
+
+  // Update jumlah komputer per Lab
+  const cAll = document.getElementById('countLabAll');
+  const cC1 = document.getElementById('countLabC1');
+  const cC2 = document.getElementById('countLabC2');
+  const cKKPI = document.getElementById('countLabKKPI');
+  const cMM = document.getElementById('countLabMM');
+
+  if (cAll) cAll.textContent = total;
+  if (cC1) cC1.textContent = state.clients.filter(c => (c.labName || 'C1').toUpperCase() === 'C1').length;
+  if (cC2) cC2.textContent = state.clients.filter(c => (c.labName || '').toUpperCase() === 'C2').length;
+  if (cKKPI) cKKPI.textContent = state.clients.filter(c => (c.labName || '').toUpperCase() === 'KKPI').length;
+  if (cMM) cMM.textContent = state.clients.filter(c => (c.labName || '').toUpperCase() === 'MM').length;
 }
 
 function renderClients() {
@@ -293,9 +314,14 @@ function renderClients() {
     return `
       <div class="client-card bg-slate-800/80 border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-slate-700/70'} rounded-xl p-4 flex flex-col justify-between shadow-lg">
         <div>
-          <!-- TOP CARD BAR: DESK NUMBER & QUICK IDENTIFY -->
+          <!-- TOP CARD BAR: LAB, DESK NUMBER & QUICK IDENTIFY -->
           <div class="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-700/60">
-            <div class="flex items-center gap-1.5 min-w-0">
+            <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+              <!-- LAB BADGE -->
+              <button data-action="quick-edit-lab" data-client-id="${c.clientId}" title="Klik untuk memindahkan ke Lab lain (C1, C2, KKPI, MM)" class="btn-card-action inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-300 border border-indigo-500/40 transition">
+                <i class="ph-bold ph-door"></i> ${escapeHtml(c.labName || 'C1')}
+              </button>
+
               ${c.deskNumber ? `
                 <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 truncate">
                   <i class="ph-bold ph-identification-card"></i> ${escapeHtml(c.deskNumber)}
@@ -474,6 +500,9 @@ function attachCardEvents() {
           break;
         case 'identify':
           identifyClient(clientId);
+          break;
+        case 'quick-edit-lab':
+          promptQuickEditLab(clientId);
           break;
         case 'quick-edit-desk':
           promptQuickEditDesk(clientId);
@@ -687,6 +716,34 @@ async function updateClientDesk(clientId, deskNumber) {
     }
   } catch (err) {
     console.error('Gagal update nomor meja:', err);
+  }
+}
+
+async function updateClientLab(clientId, labName) {
+  try {
+    const res = await fetch('/api/client/lab', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, labName })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const c = state.clients.find((cl) => cl.clientId === clientId);
+      if (c) c.labName = labName;
+      renderAll();
+    }
+  } catch (err) {
+    console.error('Gagal update lab:', err);
+  }
+}
+
+function promptQuickEditLab(clientId) {
+  const client = state.clients.find((c) => c.clientId === clientId);
+  if (!client) return;
+  const current = client.labName || 'C1';
+  const input = prompt(`Pindahkan ${client.hostname} (${client.ip}) ke Lab mana?\nPilihan: C1, C2, KKPI, MM`, current);
+  if (input !== null && input.trim()) {
+    updateClientLab(clientId, input.trim().toUpperCase());
   }
 }
 
@@ -925,6 +982,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Lab Tab Selector (Semua, C1, C2, KKPI, MM)
+  document.querySelectorAll('.lab-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.lab-tab').forEach((t) => {
+        t.className = 'lab-tab px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700 whitespace-nowrap';
+      });
+      tab.className = 'lab-tab active px-3 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow-md shadow-blue-600/30 whitespace-nowrap';
+      state.selectedLab = tab.getAttribute('data-lab');
+      renderClients();
+    });
+  });
 
   // Dropdown Menu Toggle
   const btnMoreMenu = document.getElementById('btnMoreMenu');

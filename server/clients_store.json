@@ -15,7 +15,8 @@
     "lastSeen": 1793761070022,
     "online": true,
     "cameraTime": "09.57.40",
-    "deskNumber": "Meja 36"
+    "deskNumber": "Meja 36",
+    "labName": "C1"
   },
   {
     "clientId": "PC_5CA6E69D91A3",
@@ -33,7 +34,8 @@
     "lastSeen": 1793761070330,
     "online": true,
     "cameraTime": "09.54.45",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA82456C",
@@ -51,7 +53,8 @@
     "lastSeen": 1793761070346,
     "online": true,
     "cameraTime": "09.56.32",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_EC9A0C100F64",
@@ -69,7 +72,8 @@
     "lastSeen": 1793761069450,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824504",
@@ -87,7 +91,8 @@
     "lastSeen": 1793761070083,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA82445C",
@@ -105,7 +110,8 @@
     "lastSeen": 1793761069094,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.42"
+    "cameraTime": "09.54.42",
+    "labName": "C1"
   },
   {
     "clientId": "PC_98254AA46111",
@@ -123,7 +129,8 @@
     "lastSeen": 1793761069048,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_EC9A0C10C506",
@@ -141,7 +148,8 @@
     "lastSeen": 1793761070175,
     "online": true,
     "cameraTime": "09.55.58",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA8244E7",
@@ -159,7 +167,8 @@
     "lastSeen": 1793761069279,
     "online": true,
     "cameraTime": "09.54.43",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824552",
@@ -177,7 +186,8 @@
     "lastSeen": 1793761069481,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA8244E6",
@@ -195,7 +205,8 @@
     "lastSeen": 1793761069156,
     "online": true,
     "cameraTime": "09.54.43",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824598",
@@ -213,7 +224,8 @@
     "lastSeen": 1793761069774,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA8244D1",
@@ -231,7 +243,8 @@
     "lastSeen": 1793761069434,
     "online": true,
     "cameraTime": "09.56.06",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA82448E",
@@ -249,7 +262,8 @@
     "lastSeen": 1793761070144,
     "online": true,
     "cameraTime": "09.56.25",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_000000000000",
@@ -267,7 +281,8 @@
     "lastSeen": 1793761070129,
     "online": true,
     "cameraTime": "09.56.44",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA8244FB",
@@ -285,7 +300,8 @@
     "lastSeen": 1793761069434,
     "online": true,
     "cameraTime": "09.54.41",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_B0A7B9CF83F1",
@@ -303,7 +319,8 @@
     "lastSeen": 1793761068973,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA82458D",
@@ -321,7 +338,8 @@
     "lastSeen": 1793761069264,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824425",
@@ -339,7 +357,8 @@
     "lastSeen": 1793761068971,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.56.17"
+    "cameraTime": "09.56.17",
+    "labName": "C1"
   },
   {
     "clientId": "PC_98254AA460A1",
@@ -357,7 +376,8 @@
     "lastSeen": 1793761068972,
     "online": true,
     "cameraTime": "09.54.43",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824582",
@@ -375,7 +395,8 @@
     "lastSeen": 1793761069124,
     "online": true,
     "cameraTime": "09.54.42",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824568",
@@ -393,7 +414,8 @@
     "lastSeen": 1793761069389,
     "online": true,
     "cameraTime": "09.56.02",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_788CB533B6F4",
@@ -411,7 +433,8 @@
     "lastSeen": 1793761069605,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.46"
+    "cameraTime": "09.54.46",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA8242F9",
@@ -429,7 +452,8 @@
     "lastSeen": 1793761069697,
     "online": true,
     "cameraTime": "09.56.35",
-    "deskNumber": ""
+    "deskNumber": "",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824583",
@@ -447,7 +471,8 @@
     "lastSeen": 1793761068910,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.43"
+    "cameraTime": "09.54.43",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA823AC2",
@@ -465,7 +490,8 @@
     "lastSeen": 1793761069805,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.43"
+    "cameraTime": "09.54.43",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824445",
@@ -483,7 +509,8 @@
     "lastSeen": 1793761069450,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.43"
+    "cameraTime": "09.54.43",
+    "labName": "C1"
   },
   {
     "clientId": "PC_9C5322B21341",
@@ -501,7 +528,8 @@
     "lastSeen": 1793761068880,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.56.10"
+    "cameraTime": "09.56.10",
+    "labName": "C1"
   },
   {
     "clientId": "PC_B0A7B9CF844C",
@@ -519,7 +547,8 @@
     "lastSeen": 1793761069930,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.42"
+    "cameraTime": "09.54.42",
+    "labName": "C1"
   },
   {
     "clientId": "PC_98254AA45648",
@@ -537,7 +566,8 @@
     "lastSeen": 1793761070007,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.42"
+    "cameraTime": "09.54.42",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824555",
@@ -555,7 +585,8 @@
     "lastSeen": 1793761070252,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.43"
+    "cameraTime": "09.54.43",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA8243E6",
@@ -573,7 +604,8 @@
     "lastSeen": 1793761069852,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.42"
+    "cameraTime": "09.54.42",
+    "labName": "C1"
   },
   {
     "clientId": "PC_D897BA824463",
@@ -591,7 +623,8 @@
     "lastSeen": 1793761070084,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.42"
+    "cameraTime": "09.54.42",
+    "labName": "C1"
   },
   {
     "clientId": "PC_5CA6E69DA540",
@@ -609,7 +642,8 @@
     "lastSeen": 1793761070346,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.43"
+    "cameraTime": "09.54.43",
+    "labName": "C1"
   },
   {
     "clientId": "PC_C07CD1A3AD1C",
@@ -627,7 +661,8 @@
     "lastSeen": 1793761069527,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.54.42"
+    "cameraTime": "09.54.42",
+    "labName": "C1"
   },
   {
     "clientId": "PC_5CA6E69D91EE",
@@ -645,6 +680,7 @@
     "lastSeen": 1793761068942,
     "online": true,
     "deskNumber": "",
-    "cameraTime": "09.56.39"
+    "cameraTime": "09.56.39",
+    "labName": "C1"
   }
 ]

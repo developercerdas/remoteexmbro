@@ -1035,9 +1035,10 @@ function Handle-Task {
             try {
                 Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'LabScreenLock' } | Stop-Process -Force
                 $rawMsg = if ($params.message) { $params.message } else { "Layar dikunci sementara oleh Guru / Proktor.`nHarap perhatikan penjelasan di depan kelas." }
-                $cleanMsg = $rawMsg.Replace('"', '`"')
-                $c = "Add-Type -AssemblyName System.Windows.Forms; `$f = New-Object System.Windows.Forms.Form; `$f.Text = 'LabScreenLock'; `$f.FormBorderStyle = 'None'; `$f.WindowState = 'Maximized'; `$f.TopMost = `$true; `$f.BackColor = [System.Drawing.Color]::FromArgb(15,23,42); `$l = New-Object System.Windows.Forms.Label; `$l.Text = `"🔒 LAYAR DIKUNCI`n`n$cleanMsg`"; `$l.Font = New-Object System.Drawing.Font('Segoe UI', 22, [System.Drawing.FontStyle]::Bold); `$l.ForeColor = [System.Drawing.Color]::FromArgb(56,189,248); `$l.Dock = 'Fill'; `$l.TextAlign = 'MiddleCenter'; `$f.Controls.Add(`$l); `$f.ShowDialog()"
-                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -Command `"$c`""
+                $cleanMsg = $rawMsg.Replace("'", " ").Replace('"', ' ')
+                $scriptBlock = "Add-Type -AssemblyName System.Windows.Forms; `$f = New-Object System.Windows.Forms.Form; `$f.Text = 'LabScreenLock'; `$f.FormBorderStyle = 'None'; `$f.WindowState = 'Maximized'; `$f.TopMost = `$true; `$f.BackColor = [System.Drawing.Color]::FromArgb(15,23,42); `$l = New-Object System.Windows.Forms.Label; `$l.Text = 'LAYAR DIKUNCI PROKTOR`n`n' + '$cleanMsg'; `$l.Font = New-Object System.Drawing.Font('Segoe UI', 22, [System.Drawing.FontStyle]::Bold); `$l.ForeColor = [System.Drawing.Color]::FromArgb(56,189,248); `$l.Dock = 'Fill'; `$l.TextAlign = 'MiddleCenter'; `$f.Controls.Add(`$l); `$f.ShowDialog()"
+                $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptBlock))
+                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -EncodedCommand $encoded"
                 $result.success = $true
                 $result.message = "Layar siswa berhasil dikunci (Mode Perhatian Guru)."
             } catch {

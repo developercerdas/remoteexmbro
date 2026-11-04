@@ -15,7 +15,7 @@ echo ========================================================
 echo.
 
 if exist "cloudflared.exe" (
-    cloudflared.exe tunnel --url http://localhost:3000
+    cloudflared.exe tunnel --url http://127.0.0.1:3000
 ) else (
     call npx --yes localtunnel --port 3000
 )

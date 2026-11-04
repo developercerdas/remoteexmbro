@@ -303,9 +303,23 @@ app.post('/api/agent/heartbeat', (req, res) => {
     broadcastToDashboards({ type: 'CLIENTS_UPDATE', data: Array.from(clients.values()) });
   }
 
-  // Ambil tugas yang tertunda untuk klien ini
-  const tasks = pendingTasks.get(uniqueId) || [];
-  pendingTasks.delete(uniqueId);
+  // Ambil tugas yang tertunda untuk klien ini secara cerdas (dukung pencarian berbasis MAC, IP, Hostname)
+  const tasks = [];
+  const candidateKeys = new Set([
+    uniqueId,
+    mac ? ('PC_' + mac.replace(/[:-]/g, '')) : null,
+    mac,
+    ip,
+    hostname,
+    clientId
+  ]);
+
+  for (const key of candidateKeys) {
+    if (key && pendingTasks.has(key)) {
+      tasks.push(...pendingTasks.get(key));
+      pendingTasks.delete(key);
+    }
+  }
 
   return res.json({ status: 'ok', tasks });
 });
@@ -376,6 +390,26 @@ app.post('/api/wake', (req, res) => {
   res.json({ success: true, count: sentCount });
 });
 
+// Pencocokan target cerdas berbasis MAC, IP, atau Hostname
+function resolveCanonicalId(targetKey) {
+  if (!targetKey) return targetKey;
+  const keyStr = String(targetKey).trim().toLowerCase();
+  const cleanMac = keyStr.replace(/[:-]/g, '');
+
+  for (const [id, c] of clients.entries()) {
+    if (id.toLowerCase() === keyStr) return id;
+    if (c.clientId && c.clientId.toLowerCase() === keyStr) return id;
+    if (c.mac) {
+      const cMac = c.mac.toLowerCase();
+      const cCleanMac = cMac.replace(/[:-]/g, '');
+      if (cMac === keyStr || cCleanMac === cleanMac || ('pc_' + cCleanMac) === keyStr) return id;
+    }
+    if (c.ip && c.ip.toLowerCase() === keyStr) return id;
+    if (c.hostname && c.hostname.toLowerCase() === keyStr) return id;
+  }
+  return targetKey;
+}
+
 app.post('/api/command', (req, res) => {
   const { command, target, params = {} } = req.body;
   if (!command) {
@@ -401,10 +435,11 @@ app.post('/api/command', (req, res) => {
   const taskObj = { id: taskId, command, params };
 
   targetIds.forEach((cid) => {
-    if (!pendingTasks.has(cid)) {
-      pendingTasks.set(cid, []);
+    const canonicalId = resolveCanonicalId(cid);
+    if (!pendingTasks.has(canonicalId)) {
+      pendingTasks.set(canonicalId, []);
     }
-    pendingTasks.get(cid).push(taskObj);
+    pendingTasks.get(canonicalId).push(taskObj);
   });
 
   const cmdNames = {

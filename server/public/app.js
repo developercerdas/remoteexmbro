@@ -629,6 +629,88 @@ function openScreenshotModal(client) {
   document.getElementById('modalScreenshot').classList.remove('hidden');
 }
 
+// --- MODAL KIRIM PESAN (TOP-LEVEL FUNCTION) ---
+let activeMsgTarget = 'ALL';
+let specificTargetClientId = null;
+
+function openSendMessageModal(target) {
+  const modal = document.getElementById('modalSendMessage');
+  if (!modal) return;
+  const targetSelect = document.getElementById('msgTargetSelect');
+  const txtDetail = document.getElementById('txtTargetDetail');
+  const input = document.getElementById('sendMessageInput');
+
+  if (targetSelect) {
+    targetSelect.innerHTML = '';
+    if (typeof target === 'string') {
+      specificTargetClientId = target;
+      activeMsgTarget = 'SINGLE';
+      const c = state.clients.find(x => x.clientId === target);
+      const host = c ? c.hostname : target;
+      const desk = c && c.deskNumber ? ` (Meja ${c.deskNumber})` : '';
+      const opt = document.createElement('option');
+      opt.value = 'SINGLE';
+      opt.textContent = `💻 Komputer Spesifik: ${host}${desk}`;
+      targetSelect.appendChild(opt);
+
+      const optAll = document.createElement('option');
+      optAll.value = 'ALL';
+      optAll.textContent = '🌐 Seluruh Komputer di Lab (Serentak)';
+      targetSelect.appendChild(optAll);
+      
+      if (txtDetail) txtDetail.textContent = `Pesan akan dikirim HANYA ke komputer ${host}${desk}.`;
+    } else {
+      specificTargetClientId = null;
+      const optAll = document.createElement('option');
+      optAll.value = 'ALL';
+      optAll.textContent = `🌐 Seluruh Komputer di Lab (${state.clients.filter(c => c.online).length} PC Online)`;
+      targetSelect.appendChild(optAll);
+
+      if (state.selectedIds && state.selectedIds.size > 0) {
+        const optSel = document.createElement('option');
+        optSel.value = 'SELECTED';
+        optSel.textContent = `☑️ Komputer yang Dicentang (${state.selectedIds.size} PC Terpilih)`;
+        targetSelect.appendChild(optSel);
+        targetSelect.value = 'SELECTED';
+        activeMsgTarget = 'SELECTED';
+        if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke ${state.selectedIds.size} komputer yang sedang dicentang.`;
+      } else {
+        targetSelect.value = 'ALL';
+        activeMsgTarget = 'ALL';
+        if (txtDetail) txtDetail.textContent = 'Pesan akan dikirim serentak ke seluruh komputer yang online.';
+      }
+
+      if (state.currentLab && state.currentLab !== 'ALL') {
+        const optLab = document.createElement('option');
+        optLab.value = 'CURRENT_LAB';
+        optLab.textContent = `🏛️ Komputer di Lab ${state.currentLab} Saja`;
+        targetSelect.appendChild(optLab);
+      }
+    }
+
+    targetSelect.onchange = () => {
+      activeMsgTarget = targetSelect.value;
+      if (activeMsgTarget === 'ALL') {
+        if (txtDetail) txtDetail.textContent = 'Pesan akan dikirim serentak ke seluruh komputer yang online.';
+      } else if (activeMsgTarget === 'SELECTED') {
+        if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke ${state.selectedIds.size} komputer yang dicentang.`;
+      } else if (activeMsgTarget === 'CURRENT_LAB') {
+        if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke seluruh komputer di Lab ${state.currentLab}.`;
+      } else if (activeMsgTarget === 'SINGLE') {
+        const c = state.clients.find(x => x.clientId === specificTargetClientId);
+        const host = c ? c.hostname : specificTargetClientId;
+        if (txtDetail) txtDetail.textContent = `Pesan akan dikirim HANYA ke komputer ${host}.`;
+      }
+    };
+  }
+
+  modal.classList.remove('hidden');
+  if (input) {
+    input.focus();
+  }
+}
+window.openSendMessageModal = openSendMessageModal;
+
 let activeCameraClientId = null;
 let isLiveCamera = true;
 let liveStreamTimer = null;
@@ -1234,87 +1316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- FITUR KIRIM PESAN KE SISWA (AUTO-CLOSE 30 DETIK) ---
-  let activeMsgTarget = 'ALL';
-  let specificTargetClientId = null;
-
-  function openSendMessageModal(target) {
-    const modal = document.getElementById('modalSendMessage');
-    if (!modal) return;
-    const targetSelect = document.getElementById('msgTargetSelect');
-    const txtDetail = document.getElementById('txtTargetDetail');
-    const input = document.getElementById('sendMessageInput');
-
-    if (targetSelect) {
-      targetSelect.innerHTML = '';
-      if (typeof target === 'string') {
-        specificTargetClientId = target;
-        activeMsgTarget = 'SINGLE';
-        const c = state.clients.find(x => x.clientId === target);
-        const host = c ? c.hostname : target;
-        const desk = c && c.deskNumber ? ` (Meja ${c.deskNumber})` : '';
-        const opt = document.createElement('option');
-        opt.value = 'SINGLE';
-        opt.textContent = `💻 Komputer Spesifik: ${host}${desk}`;
-        targetSelect.appendChild(opt);
-
-        const optAll = document.createElement('option');
-        optAll.value = 'ALL';
-        optAll.textContent = '🌐 Seluruh Komputer di Lab (Serentak)';
-        targetSelect.appendChild(optAll);
-        
-        if (txtDetail) txtDetail.textContent = `Pesan akan dikirim HANYA ke komputer ${host}${desk}.`;
-      } else {
-        specificTargetClientId = null;
-        const optAll = document.createElement('option');
-        optAll.value = 'ALL';
-        optAll.textContent = `🌐 Seluruh Komputer di Lab (${state.clients.filter(c => c.online).length} PC Online)`;
-        targetSelect.appendChild(optAll);
-
-        if (state.selectedIds && state.selectedIds.size > 0) {
-          const optSel = document.createElement('option');
-          optSel.value = 'SELECTED';
-          optSel.textContent = `☑️ Komputer yang Dicentang (${state.selectedIds.size} PC Terpilih)`;
-          targetSelect.appendChild(optSel);
-          targetSelect.value = 'SELECTED';
-          activeMsgTarget = 'SELECTED';
-          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke ${state.selectedIds.size} komputer yang sedang dicentang.`;
-        } else {
-          targetSelect.value = 'ALL';
-          activeMsgTarget = 'ALL';
-          if (txtDetail) txtDetail.textContent = 'Pesan akan dikirim serentak ke seluruh komputer yang online.';
-        }
-
-        if (state.currentLab && state.currentLab !== 'ALL') {
-          const optLab = document.createElement('option');
-          optLab.value = 'CURRENT_LAB';
-          optLab.textContent = `🏛️ Komputer di Lab ${state.currentLab} Saja`;
-          targetSelect.appendChild(optLab);
-        }
-      }
-
-      targetSelect.onchange = () => {
-        activeMsgTarget = targetSelect.value;
-        if (activeMsgTarget === 'ALL') {
-          if (txtDetail) txtDetail.textContent = 'Pesan akan dikirim serentak ke seluruh komputer yang online.';
-        } else if (activeMsgTarget === 'SELECTED') {
-          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke ${state.selectedIds.size} komputer yang dicentang.`;
-        } else if (activeMsgTarget === 'CURRENT_LAB') {
-          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke seluruh komputer di Lab ${state.currentLab}.`;
-        } else if (activeMsgTarget === 'SINGLE') {
-          const c = state.clients.find(x => x.clientId === specificTargetClientId);
-          const host = c ? c.hostname : specificTargetClientId;
-          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim HANYA ke komputer ${host}.`;
-        }
-      };
-    }
-
-    modal.classList.remove('hidden');
-    if (input) {
-      input.focus();
-    }
-  }
-
+  // --- FITUR KIRIM PESAN KE SISWA (EVENT LISTENERS) ---
   // Tombol buka modal kirim pesan dari berbagai tempat
   const btnOpenMsgExam = document.getElementById('btnOpenSendMessageExam');
   if (btnOpenMsgExam) {

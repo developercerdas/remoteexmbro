@@ -1110,6 +1110,15 @@ function Handle-Task {
                 $result.message = "Gagal membuka url: $($_.Exception.Message)"
             }
         }
+        "close_browser" {
+            try {
+                Stop-Process -Name 'chrome','msedge' -Force -ErrorAction SilentlyContinue
+                $result.success = $true
+                $result.message = "Seluruh jendela browser (Chrome/Edge) siswa berhasil ditutup."
+            } catch {
+                $result.message = "Gagal menutup browser: $($_.Exception.Message)"
+            }
+        }
         "lock_screen" {
             try {
                 Get-Process powershell -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'LabScreenLock' } | Stop-Process -Force

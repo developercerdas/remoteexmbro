@@ -549,6 +549,11 @@ app.post('/api/command', (req, res) => {
     finalParams = {
       script: `$exam = Get-Process -Name 'elekbrowser','runningexam','ExamBrowser' -ErrorAction SilentlyContinue; if ($exam) { Write-Output 'DITOLAK: ExamBrowser sedang aktif. Membuka web diblokir demi keamanan ujian.'; exit 0 }; $u = '${rawUrl}'; try { Start-Process "chrome.exe" $u -ErrorAction Stop } catch { try { Start-Process "msedge.exe" $u -ErrorAction Stop } catch { Start-Process $u } }`
     };
+  } else if (command === 'close_browser') {
+    finalCommand = 'exec_custom';
+    finalParams = {
+      script: `Stop-Process -Name 'chrome','msedge' -Force -ErrorAction SilentlyContinue; Write-Output 'Browser (Chrome & Edge) berhasil ditutup.'`
+    };
   } else if (command === 'lock_screen') {
     const rawMsg = (params.message || 'Layar dikunci sementara oleh Guru / Proktor.\\nHarap perhatikan penjelasan di depan kelas.').replace(/[`"$]/g, ' ');
     finalCommand = 'exec_custom';
@@ -586,6 +591,7 @@ app.post('/api/command', (req, res) => {
     unlock_screen: 'Buka Kunci Layar',
     send_message: 'Kirim Pesan Pengumuman',
     open_url: 'Buka Halaman Web/Ujian',
+    close_browser: 'Tutup Browser (Chrome/Edge)',
     lock_wallpaper: 'Kunci Wallpaper Desktop',
     unlock_wallpaper: 'Buka Kunci Wallpaper',
     lock_installer: 'Blokir Instalasi Software',

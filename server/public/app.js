@@ -379,126 +379,129 @@ function renderClients() {
               <span class="text-slate-400">ExamBrowser:</span>
               ${examBadge}
             </div>
-            <div class="flex items-center justify-between">
-              <span class="text-slate-400">Kamera/Webcam:</span>
+            <div class="flex items-center justify-between text-xs gap-1">
+              <span class="text-slate-400 shrink-0">Kamera/Webcam:</span>
               ${c.webcamAvailable ? `
-                <button data-action="camera" data-client-id="${c.clientId}" title="Klik untuk membuka layar kamera siswa" class="btn-card-action px-2 py-0.5 rounded bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 border border-purple-700/50 text-xs font-medium flex items-center gap-1.5 transition">
-                  <i class="ph-bold ph-webcam text-purple-400"></i> ${escapeHtml(c.webcamName || 'Webcam Ada')} (Lihat)
+                <button data-action="camera" data-client-id="${c.clientId}" title="Klik untuk membuka layar kamera siswa" class="btn-card-action px-2 py-0.5 rounded bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 border border-purple-700/50 text-[11px] font-medium flex items-center gap-1 transition max-w-[140px] truncate">
+                  <i class="ph-bold ph-webcam text-purple-400 shrink-0"></i> <span class="truncate">Tersedia (Lihat)</span>
                 </button>
               ` : `
-                <span class="text-slate-500 flex items-center gap-1"><i class="ph-bold ph-prohibit"></i> Tidak Ada</span>
+                <span class="text-slate-500 flex items-center gap-1 text-[11px]"><i class="ph-bold ph-prohibit"></i> Tidak Ada</span>
               `}
             </div>
           </div>
 
-          <!-- CAMERA FEED PREVIEW (IF AVAILABLE) -->
-          ${
-            c.latestCameraImage
-              ? `
-              <div class="mb-3 relative group rounded-lg overflow-hidden border border-purple-600/50 bg-black cursor-pointer preview-camera-btn" data-client-id="${c.clientId}" title="Klik untuk memperbesar tampilan kamera">
-                <img src="${c.latestCameraImage}" alt="Feed Kamera" class="w-full h-32 object-cover object-center opacity-95 group-hover:opacity-100 transition">
-                <div class="absolute inset-0 bg-purple-950/20 group-hover:bg-transparent transition"></div>
-                <div class="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-sm border border-purple-800/80 text-purple-300 px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1">
-                  <i class="ph-bold ph-webcam text-xs text-purple-400"></i> Feed Kamera Siswa
-                </div>
-                <div class="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                  ${c.cameraTime || ''}
+          <!-- PREVIEW THUMBNAILS (KAMERA & LAYAR) -->
+          ${(c.latestCameraImage && c.latestScreenshot) ? `
+            <div class="grid grid-cols-2 gap-1.5 mb-2.5">
+              <div class="relative group rounded-lg overflow-hidden border border-purple-600/50 bg-black cursor-pointer preview-camera-btn h-24" data-client-id="${c.clientId}" title="Klik untuk memperbesar kamera siswa">
+                <img src="${c.latestCameraImage}" alt="Feed Kamera" class="w-full h-full object-cover object-center opacity-95 group-hover:opacity-100 transition">
+                <div class="absolute top-1 left-1 bg-black/80 text-purple-300 px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-1">
+                  <i class="ph-bold ph-webcam text-xs"></i> Kamera
                 </div>
               </div>
-            `
-              : ''
-          }
-
-          <!-- SCREENSHOT THUMBNAIL PREVIEW (IF AVAILABLE) -->
-          ${
-            c.latestScreenshot
-              ? `
-              <div class="mb-3 relative group rounded-lg overflow-hidden border border-slate-700 bg-black cursor-pointer preview-screen-btn" data-client-id="${c.clientId}">
-                <img src="${c.latestScreenshot}" alt="Preview Screen" class="w-full h-24 object-cover object-top opacity-90 group-hover:opacity-100 transition">
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                  <span class="text-xs font-medium text-white px-2 py-1 rounded bg-black/70 flex items-center gap-1">
-                    <i class="ph-bold ph-magnifying-glass-plus"></i> Perbesar Layar
-                  </span>
+              <div class="relative group rounded-lg overflow-hidden border border-slate-700 bg-black cursor-pointer preview-screen-btn h-24" data-client-id="${c.clientId}" title="Klik untuk memperbesar layar siswa">
+                <img src="${c.latestScreenshot}" alt="Preview Screen" class="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition">
+                <div class="absolute top-1 left-1 bg-black/80 text-cyan-300 px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-1">
+                  <i class="ph-bold ph-desktop text-xs"></i> Layar
                 </div>
-                <span class="absolute bottom-1 right-1 text-[10px] bg-black/70 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                  ${c.screenshotTime || ''}
-                </span>
               </div>
-            `
-              : ''
-          }
+            </div>
+          ` : c.latestCameraImage ? `
+            <div class="mb-2.5 relative group rounded-lg overflow-hidden border border-purple-600/50 bg-black cursor-pointer preview-camera-btn h-28" data-client-id="${c.clientId}" title="Klik untuk memperbesar kamera siswa">
+              <img src="${c.latestCameraImage}" alt="Feed Kamera" class="w-full h-full object-cover object-center opacity-95 group-hover:opacity-100 transition">
+              <div class="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-sm border border-purple-800/80 text-purple-300 px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1">
+                <i class="ph-bold ph-webcam text-xs text-purple-400"></i> Feed Kamera Siswa
+              </div>
+              <div class="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                ${c.cameraTime || ''}
+              </div>
+            </div>
+          ` : c.latestScreenshot ? `
+            <div class="mb-2.5 relative group rounded-lg overflow-hidden border border-slate-700 bg-black cursor-pointer preview-screen-btn h-28" data-client-id="${c.clientId}" title="Klik untuk memperbesar pantauan layar">
+              <img src="${c.latestScreenshot}" alt="Preview Screen" class="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition">
+              <div class="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-sm border border-slate-700 text-cyan-300 px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1">
+                <i class="ph-bold ph-desktop text-xs text-cyan-400"></i> Layar Siswa
+              </div>
+              <div class="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                ${c.screenshotTime || ''}
+              </div>
+            </div>
+          ` : ''}
         </div>
 
-        <!-- BOTTOM CARD ACTION BUTTONS -->
-        <div class="flex items-center gap-1.5 pt-1">
-          ${!isOnline && c.mac ? `
-            <button data-action="wake" data-client-id="${c.clientId}" title="Kirim sinyal nyalakan PC (Wake-on-LAN)" class="btn-card-action flex-1 py-1.5 px-2 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 border border-yellow-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition">
-              <i class="ph-bold ph-lightning"></i> Hidupkan
+        <!-- ACTION BUTTONS: TERTATA RAPI 2 BARIS (TIDAK OVERFLOW / BERTUMPUK) -->
+        <div class="pt-2 border-t border-slate-700/60 mt-1 space-y-1.5">
+          <!-- Baris 1: Kontrol Ujian ExamBrowser (50% - 50%) -->
+          <div class="grid grid-cols-2 gap-1.5">
+            ${!isOnline && c.mac ? `
+              <button data-action="wake" data-client-id="${c.clientId}" title="Kirim sinyal nyalakan PC (Wake-on-LAN)" class="col-span-2 btn-card-action py-1.5 px-2 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 border border-yellow-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition">
+                <i class="ph-bold ph-lightning"></i> Hidupkan PC
+              </button>
+            ` : `
+              <button data-action="launch" data-client-id="${c.clientId}" title="Buka & Auto RUN ExamBrowser" class="btn-card-action py-1.5 px-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-95">
+                <i class="ph-bold ph-play"></i> Buka
+              </button>
+              <button data-action="close" data-client-id="${c.clientId}" title="Tutup Aman ExamBrowser (Ctrl+C+B)" class="btn-card-action py-1.5 px-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-95">
+                <i class="ph-bold ph-stop"></i> Tutup
+              </button>
+            `}
+          </div>
+
+          <!-- Baris 2: Pemantauan Siswa & Menu Lab (4 Kolom Rata: 25% masing-masing) -->
+          <div class="grid grid-cols-4 gap-1.5">
+            <button data-action="live-screen" data-client-id="${c.clientId}" title="🖥️ Pantau Layar Siswa Realtime" class="btn-card-action py-1.5 px-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/35 text-cyan-200 border border-cyan-500/30 text-xs font-medium flex items-center justify-center gap-1 transition active:scale-95">
+              <i class="ph-bold ph-desktop text-sm"></i> Layar
             </button>
-          ` : `
-            <!-- Buka Auto-RUN -->
-            <button data-action="launch" data-client-id="${c.clientId}" title="Buka & Auto RUN" class="btn-card-action flex-1 py-1.5 px-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition">
-              <i class="ph-bold ph-play"></i> Buka
+
+            <button data-action="camera" data-client-id="${c.clientId}" title="📹 Pantau Kamera Siswa" class="btn-card-action py-1.5 px-1 rounded-lg bg-purple-600/20 hover:bg-purple-600/35 text-purple-200 border border-purple-500/30 text-xs font-medium flex items-center justify-center gap-1 transition active:scale-95">
+              <i class="ph-bold ph-webcam text-sm"></i> Kamera
             </button>
 
-            <!-- Tutup Aman Ctrl+C+B -->
-            <button data-action="close" data-client-id="${c.clientId}" title="Tutup Aman (Ctrl+C+B)" class="btn-card-action flex-1 py-1.5 px-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition">
-              <i class="ph-bold ph-stop"></i> Tutup
+            <button data-action="message-single" data-client-id="${c.clientId}" title="📢 Kirim Pesan ke PC Ini Saja" class="btn-card-action py-1.5 px-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center justify-center gap-1 transition active:scale-95">
+              <i class="ph-bold ph-chat-circle-dots text-sm"></i> Pesan
             </button>
-          `}
 
-          <!-- Live Monitor Layar Siswa -->
-          <button data-action="live-screen" data-client-id="${c.clientId}" title="🖥️ Pantau Layar Siswa Realtime (Live Monitor)" class="btn-card-action px-2 py-1.5 rounded-lg bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-200 border border-cyan-500/35 text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-95">
-            <i class="ph-bold ph-desktop text-sm"></i> Layar
-          </button>
-
-          <!-- Pantau Kamera Wajah -->
-          <button data-action="camera" data-client-id="${c.clientId}" title="📹 Pantau Kamera Siswa" class="btn-card-action px-2 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-95">
-            <i class="ph-bold ph-webcam text-sm"></i> Kamera
-          </button>
-
-          <!-- Kirim Pesan Cepat -->
-          <button data-action="message-single" data-client-id="${c.clientId}" title="📢 Kirim Pesan ke PC Ini Saja (Otomatis tertutup 30 detik)" class="btn-card-action p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs transition active:scale-95">
-            <i class="ph-bold ph-chat-circle-dots text-sm"></i>
-          </button>
-
-          <!-- Menu Opsi Manajemen Lab PC Ini -->
-          <div class="relative inline-block text-left">
-            <button data-action="lab-menu-toggle" data-client-id="${c.clientId}" title="⚙️ Opsi Manajemen Lab Lengkap untuk PC Ini" class="btn-card-action p-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 border border-slate-600/50 text-xs transition">
-              <i class="ph-bold ph-dots-three-vertical text-sm"></i>
-            </button>
-            <div id="cardLabMenu_${c.clientId}" class="card-lab-dropdown hidden absolute right-0 bottom-full mb-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 py-1.5 text-xs">
-              <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Manajemen Lab (KBM)</div>
-              <button data-action="lab-lock-screen" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-lock"></i> Kunci Layar Siswa
+            <div class="relative">
+              <button data-action="lab-menu-toggle" data-client-id="${c.clientId}" title="⚙️ Opsi Manajemen Lab Lengkap untuk PC Ini" class="btn-card-action w-full h-full py-1.5 px-1 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 border border-slate-600/50 text-xs font-medium flex items-center justify-center gap-0.5 transition active:scale-95">
+                <i class="ph-bold ph-dots-three-vertical text-sm"></i> Opsi
               </button>
-              <button data-action="lab-unlock-screen" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-lock-open"></i> Buka Layar Siswa
-              </button>
-              <button data-action="lab-open-url" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-globe"></i> Buka Halaman Web/Tugas...
-              </button>
-              <div class="border-t border-slate-800 my-1"></div>
-              <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Keamanan & Sistem</div>
-              <button data-action="lab-lock-wallpaper" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-image"></i> Kunci Wallpaper Desktop
-              </button>
-              <button data-action="lab-unlock-wallpaper" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-slate-300 hover:bg-slate-700/50 flex items-center gap-2">
-                <i class="ph-bold ph-image"></i> Buka Kunci Wallpaper
-              </button>
-              <button data-action="lab-lock-installer" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-shield-check"></i> Blokir Instalasi Software
-              </button>
-              <button data-action="lab-unlock-installer" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-shield"></i> Buka Izin Instalasi
-              </button>
-              <div class="border-t border-slate-800 my-1"></div>
-              <button data-action="reset-session" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset Sesi Siswa (Fresh)
-              </button>
-              <button data-action="kill" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2">
-                <i class="ph-bold ph-x"></i> Paksa Berhenti (Kill)
-              </button>
+              <div id="cardLabMenu_${c.clientId}" class="card-lab-dropdown hidden absolute right-0 bottom-full mb-1.5 w-56 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-50 py-1.5 text-xs">
+                <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Manajemen Lab (KBM)</div>
+                <button data-action="lab-open-url" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-globe text-indigo-400"></i> Buka Web / Tautan...
+                </button>
+                <button data-action="lab-close-browser" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-x-circle text-rose-400"></i> Tutup Browser (Chrome/Edge)
+                </button>
+                <button data-action="lab-lock-screen" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-lock text-rose-400"></i> Kunci Layar Siswa
+                </button>
+                <button data-action="lab-unlock-screen" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-lock-open text-emerald-400"></i> Buka Layar Siswa
+                </button>
+                <div class="border-t border-slate-800 my-1"></div>
+                <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Keamanan & Sistem</div>
+                <button data-action="lab-lock-wallpaper" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-image text-amber-400"></i> Kunci Wallpaper Desktop
+                </button>
+                <button data-action="lab-unlock-wallpaper" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-slate-300 hover:bg-slate-700/50 flex items-center gap-2">
+                  <i class="ph-bold ph-image text-slate-400"></i> Buka Kunci Wallpaper
+                </button>
+                <button data-action="lab-lock-installer" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-shield-check text-rose-400"></i> Blokir Instalasi Software
+                </button>
+                <button data-action="lab-unlock-installer" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-shield text-emerald-400"></i> Buka Izin Instalasi
+                </button>
+                <div class="border-t border-slate-800 my-1"></div>
+                <button data-action="reset-session" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-arrow-counter-clockwise text-amber-400"></i> Reset Sesi Siswa (Fresh)
+                </button>
+                <button data-action="kill" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2">
+                  <i class="ph-bold ph-x text-rose-400"></i> Paksa Berhenti (Kill)
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -577,6 +580,9 @@ function attachCardEvents() {
           if (targetUrl && targetUrl.trim() && targetUrl !== 'https://') {
             sendCommand('open_url', [clientId], { url: targetUrl.trim() });
           }
+          break;
+        case 'lab-close-browser':
+          sendCommand('close_browser', [clientId]);
           break;
         case 'wake':
           wakePCs([clientId]);
@@ -1536,6 +1542,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const btnCloseBrowser = document.getElementById('btnMassCloseBrowser');
+  if (btnCloseBrowser) {
+    btnCloseBrowser.addEventListener('click', () => {
+      if (confirm('Tutup seluruh jendela browser (Chrome & Edge) di komputer siswa?')) {
+        sendCommand('close_browser');
+      }
+    });
+  }
+
   const btnScreenLab = document.getElementById('btnMassScreenshotLab');
   if (btnScreenLab) {
     btnScreenLab.addEventListener('click', () => sendCommand('screenshot'));
@@ -1690,6 +1705,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (url && url.trim() && url !== 'https://') {
         sendCommand('open_url', Array.from(state.selectedIds), { url: url.trim() });
       }
+    });
+  }
+
+  const btnCloseBrSel = document.getElementById('btnCloseBrowserSelected');
+  if (btnCloseBrSel) {
+    btnCloseBrSel.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      sendCommand('close_browser');
     });
   }
 
@@ -1946,5 +1969,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnClearLogs').addEventListener('click', () => {
     state.logs = [];
     renderLogs();
+  });
+
+  // Tutup dropdown menu otomatis jika klik di luar
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.card-lab-dropdown') && !e.target.closest('[data-action="lab-menu-toggle"]')) {
+      document.querySelectorAll('.card-lab-dropdown').forEach((d) => d.classList.add('hidden'));
+    }
   });
 });

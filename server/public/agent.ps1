@@ -129,7 +129,7 @@ public class Win32 {
     [DllImport("user32.dll")]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-    public const int SRCCOPY = 0x00CC0020;
+    public const int SRCCOPY = 0x40CC0020; // 0x00CC0020 (SRCCOPY) | 0x40000000 (CAPTUREBLT) untuk tangkap jendela layered & DWM composite
 
     public static IntPtr CaptureDesktopHBitmap(out int width, out int height) {
         width = GetSystemMetrics(0);

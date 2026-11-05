@@ -543,10 +543,10 @@ app.post('/api/command', (req, res) => {
       script: '[System.Console]::Beep(1400, 200); [System.Console]::Beep(1800, 300); $w = New-Object -ComObject Wscript.Shell; $w.Popup("' + safeMsg + '", ' + duration + ', "' + safeTitle + '", 64)'
     };
   } else if (command === 'open_url') {
-    const url = (params.url || 'https://google.com').replace(/[`"$]/g, '');
+    const rawUrl = (params.url || 'https://google.com').replace(/[`"$]/g, '');
     finalCommand = 'exec_custom';
     finalParams = {
-      script: `Start-Process "${url}"`
+      script: `$u = '${rawUrl}'; try { Start-Process "chrome.exe" $u -ErrorAction Stop } catch { try { Start-Process "msedge.exe" $u -ErrorAction Stop } catch { Start-Process $u } }`
     };
   } else if (command === 'lock_screen') {
     const rawMsg = (params.message || 'Layar dikunci sementara oleh Guru / Proktor.\\nHarap perhatikan penjelasan di depan kelas.').replace(/[`"$]/g, ' ');

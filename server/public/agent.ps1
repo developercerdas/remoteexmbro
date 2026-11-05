@@ -793,10 +793,80 @@ function Capture-CleanScreenJpeg {
     }
 }
 
+function Release-HardwareWebcam {
+    if ($Script:MediaCaptureInstance) {
+        try {
+            $Script:MediaCaptureInstance.Dispose()
+        } catch {}
+        $Script:MediaCaptureInstance = $null
+    }
+}
+
+function Capture-HardwareWebcam {
+    param(
+        [int]$TargetWidth = 640,
+        [int]$TargetHeight = 480
+    )
+    try {
+        Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction SilentlyContinue
+        [Windows.Media.Capture.MediaCapture, Windows.Media.Capture, ContentType = WindowsRuntime] | Out-Null
+        [Windows.Media.MediaProperties.ImageEncodingProperties, Windows.Media.MediaProperties, ContentType = WindowsRuntime] | Out-Null
+        [Windows.Storage.Streams.InMemoryRandomAccessStream, Windows.Storage.Streams, ContentType = WindowsRuntime] | Out-Null
+
+        if (-not $Script:MediaCaptureInstance) {
+            $mc = New-Object Windows.Media.Capture.MediaCapture
+            $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { 
+                $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncAction' 
+            } | Select-Object -First 1
+            $initTask = $asTask.Invoke($null, @($mc.InitializeAsync()))
+            $null = $initTask.Wait(5000)
+            if ($initTask.Status -eq 'RanToCompletion') {
+                $Script:MediaCaptureInstance = $mc
+            } else {
+                $mc.Dispose()
+                return $null
+            }
+        }
+
+        $imgProps = [Windows.Media.MediaProperties.ImageEncodingProperties]::CreateJpeg()
+        if ($TargetWidth -gt 0 -and $TargetHeight -gt 0) {
+            $imgProps.Width = [uint32]$TargetWidth
+            $imgProps.Height = [uint32]$TargetHeight
+        }
+
+        $asTaskAction = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { 
+            $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncAction' 
+        } | Select-Object -First 1
+
+        $stream = New-Object Windows.Storage.Streams.InMemoryRandomAccessStream
+        $capTask = $asTaskAction.Invoke($null, @($Script:MediaCaptureInstance.CapturePhotoToStreamAsync($imgProps, $stream)))
+        $null = $capTask.Wait(4000)
+
+        if ($capTask.Status -eq 'RanToCompletion' -and $stream.Size -gt 0) {
+            $bytes = New-Object byte[] $stream.Size
+            $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+            $null = $netStream.Read($bytes, 0, $stream.Size)
+            $b64 = [Convert]::ToBase64String($bytes)
+            $stream.Dispose()
+
+            if (-not $Script:IsLiveStreaming) {
+                Release-HardwareWebcam
+            }
+            return "data:image/jpeg;base64,$b64"
+        } else {
+            Release-HardwareWebcam
+            return $null
+        }
+    } catch {
+        Release-HardwareWebcam
+        return $null
+    }
+}
+
 function Capture-CameraSnapshot {
     param([bool]$CropToCam = $true)
 
-    # 1. Deteksi dinamis koordinat jendela proses ExamCam di monitor
+    # 1. Deteksi dinamis koordinat jendela proses ExamCam di monitor (jika ANBK ExamBrowser webcam aktif)
     $camProc = Get-Process -Name 'ExamCam' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
     if ($camProc) {
         $r = New-Object Win32+RECT
@@ -824,18 +894,19 @@ function Capture-CameraSnapshot {
         }
     }
 
-    # 3. Potong murni kotak kamera wajah siswa standar (X=0, Y=33, Width=207, Height=154)
-    if ($CropToCam) {
+    # 3. PRIORITAS: Tangkap frame langsung dari hardware webcam fisik (HP Integrated Webcam / UVC Device)
+    $hwFrame = Capture-HardwareWebcam -TargetWidth 640 -TargetHeight 480
+    if ($hwFrame) {
+        return $hwFrame
+    }
+
+    # 4. Fallback jika komputer sedang menjalankan ExamBrowser tanpa proses ExamCam terpisah
+    $examProc = Get-Process -Name 'ExamBrowser','runningexam','elekbrowser' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($examProc -and $CropToCam) {
         $camCrop = Capture-CleanScreenJpeg -X 0 -Y 33 -SourceWidth 207 -SourceHeight 154 -TargetWidth 640 -Quality 70
         if ($camCrop) {
             return $camCrop
         }
-    }
-
-    # 4. Fallback: kotak widget ExamCam penuh (X=0, Y=0, 220x195)
-    $camWidget = Capture-CleanScreenJpeg -X 0 -Y 0 -SourceWidth 220 -SourceHeight 195 -TargetWidth 640 -Quality 70
-    if ($camWidget) {
-        return $camWidget
     }
 
     # 5. Fallback terakhir: Layar penuh
@@ -919,6 +990,7 @@ function Handle-Task {
         }
         "stop_live_stream" {
             $Script:IsLiveStreaming = $false
+            Release-HardwareWebcam
             $result.success = $true
             $result.message = "Live streaming kamera dimatikan."
         }

@@ -843,6 +843,7 @@ function Capture-HardwareWebcam {
         $null = $capTask.Wait(4000)
 
         if ($capTask.Status -eq 'RanToCompletion' -and $stream.Size -gt 0) {
+            $stream.Seek(0)
             $bytes = New-Object byte[] $stream.Size
             $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
             $null = $netStream.Read($bytes, 0, $stream.Size)

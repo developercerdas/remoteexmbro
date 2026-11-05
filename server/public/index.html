@@ -264,18 +264,43 @@
 
       </div>
 
-      <!-- SELECTION STATUS BANNER -->
+      <!-- SELECTION STATUS BANNER (MANAJEMEN LAB PC TERPILIH) -->
       <div id="selectionBanner" class="hidden mt-3 pt-3 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-2 text-xs text-blue-300">
         <div class="flex items-center gap-2">
-          <i class="ph-fill ph-check-circle"></i>
-          <span><strong id="selectedCount">0</strong> klien dipilih.</span>
+          <i class="ph-fill ph-check-circle text-base text-blue-400"></i>
+          <span><strong id="selectedCount" class="text-white text-sm">0</strong> PC dipilih</span>
+          <button id="btnDeselectAll" class="text-slate-400 hover:text-white underline ml-1">Batal</button>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="btnSendMessageSelected" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition shadow-sm active:scale-95">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Aksi Manajemen Lab Cepat untuk PC yang Dicentang -->
+          <button id="btnSendMessageSelected" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow-sm active:scale-95" title="Kirim pesan pengumuman ke PC terpilih">
             <i class="ph-bold ph-megaphone text-xs"></i>
-            <span>Kirim Pesan ke Terpilih</span>
+            <span>📢 Kirim Pesan</span>
           </button>
-          <button id="btnDeselectAll" class="text-slate-400 hover:text-white underline">Batalkan Pilihan</button>
+          <button id="btnLockScreenSelected" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold transition shadow-sm active:scale-95" title="Kunci layar PC terpilih (Mode Perhatian)">
+            <i class="ph-bold ph-lock text-xs"></i>
+            <span>🔒 Kunci Layar</span>
+          </button>
+          <button id="btnUnlockScreenSelected" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition shadow-sm active:scale-95" title="Buka kembali kunci layar PC terpilih">
+            <i class="ph-bold ph-lock-open text-xs"></i>
+            <span>🔓 Buka Layar</span>
+          </button>
+          <button id="btnScreenshotSelected" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold transition active:scale-95" title="Ambil tangkapan layar PC terpilih serentak">
+            <i class="ph-bold ph-camera text-xs"></i>
+            <span>📸 Layar</span>
+          </button>
+          <button id="btnOpenUrlSelected" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition active:scale-95" title="Buka tautan website/tugas di PC terpilih">
+            <i class="ph-bold ph-globe text-xs"></i>
+            <span>🌐 Buka URL</span>
+          </button>
+          <button id="btnLockWallpaperSelected" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-600/40 font-medium transition" title="Kunci wallpaper desktop PC terpilih">
+            <i class="ph-bold ph-image text-xs"></i>
+            <span>Kunci Wallpaper</span>
+          </button>
+          <button id="btnLockInstallerSelected" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-600/40 font-medium transition" title="Blokir instalasi software (.msi) di PC terpilih">
+            <i class="ph-bold ph-shield-check text-xs"></i>
+            <span>Blokir Install</span>
+          </button>
         </div>
       </div>
     </div>
@@ -360,24 +385,60 @@
 
   </main>
 
-  <!-- MODAL: PREVIEW SCREENSHOT -->
+  <!-- MODAL: PREVIEW SCREENSHOT & LIVE SCREEN MONITOR -->
   <div id="modalScreenshot" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl">
+    <div id="modalScreenshotContainer" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col">
       <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <i class="ph-bold ph-camera text-blue-400 text-lg"></i>
-          <h3 id="modalScreenshotTitle" class="font-semibold text-white">Tangkapan Layar Klien</h3>
+        <div class="flex items-center gap-2.5">
+          <i class="ph-bold ph-desktop text-cyan-400 text-lg"></i>
+          <h3 id="modalScreenshotTitle" class="font-semibold text-white">Pantauan Layar Siswa (Live Monitor)</h3>
         </div>
-        <button class="modal-close text-slate-400 hover:text-white text-xl">
-          <i class="ph-bold ph-x"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          <!-- Toggle Live Stream Layar -->
+          <button id="btnToggleLiveScreen" title="Klik untuk menjeda/melanjutkan pantauan live layar otomatis" class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 hover:bg-cyan-900/50">
+            <span class="w-2 h-2 rounded-full bg-cyan-500 animate-ping"></span>
+            <span id="lblLiveScreenStatus">🔴 LIVE MONITOR AKTIF</span>
+          </button>
+          <!-- Tombol Segarkan Sekali -->
+          <button id="btnRefreshScreenOnce" title="Segarkan tangkapan layar sekarang" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-900/40 hover:bg-blue-900/70 text-blue-300 border border-blue-700/60 flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-arrows-clockwise"></i>
+            <span>Segarkan</span>
+          </button>
+          <!-- Tombol Layar Penuh Monitor -->
+          <button id="btnFullscreenScreen" title="Buka tampilan layar penuh di monitor Anda (Fullscreen)" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-arrows-out"></i>
+            <span id="lblFullscreenScreen">Layar Penuh</span>
+          </button>
+          <button class="modal-close text-slate-400 hover:text-white text-xl ml-1">
+            <i class="ph-bold ph-x"></i>
+          </button>
+        </div>
       </div>
-      <div class="p-4 bg-black flex items-center justify-center min-h-[300px]">
-        <img id="modalScreenshotImg" src="" alt="Layar Klien" class="max-h-[70vh] rounded border border-slate-800 object-contain">
+      <div class="p-3 bg-black flex flex-col items-center justify-center min-h-[380px] relative">
+        <div id="modalScreenshotLoading" class="hidden absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center space-y-2 z-10">
+          <i class="ph-bold ph-spinner animate-spin text-3xl text-cyan-400"></i>
+          <span class="text-xs text-slate-300">Menyinkronkan layar siswa...</span>
+        </div>
+        <img id="modalScreenshotImg" src="" alt="Layar Siswa" class="max-h-[72vh] w-auto rounded border border-slate-800 object-contain shadow-2xl transition duration-150">
       </div>
-      <div class="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-        <span id="modalScreenshotTime">Diambil pada: -</span>
-        <button class="modal-close px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">Tutup</button>
+      <div class="px-5 py-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 bg-slate-900/90">
+        <div class="flex items-center gap-3">
+          <span id="modalScreenshotTime" class="font-mono text-slate-300">Waktu: -</span>
+          <span class="text-slate-500">Resolusi: 1024-1280px Jernih</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Intervensi Cepat -->
+          <button id="btnScreenActionMessage" class="px-3 py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 font-semibold flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-chat-circle-dots"></i> Kirim Pesan
+          </button>
+          <button id="btnScreenActionLock" class="px-3 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 font-semibold flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-lock"></i> Kunci Layar
+          </button>
+          <button id="btnScreenActionUnlock" class="px-3 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 font-semibold flex items-center gap-1.5 transition">
+            <i class="ph-bold ph-lock-open"></i> Buka Layar
+          </button>
+          <button class="modal-close px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium">Tutup</button>
+        </div>
       </div>
     </div>
   </div>

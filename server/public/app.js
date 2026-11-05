@@ -63,12 +63,27 @@ function connectWebSocket() {
           }
         }
       } else if (msg.type === 'SCREENSHOT_UPDATE') {
-        // Realtime update modal screenshot jika sedang dibuka
+        // Realtime update modal screenshot & live screen loop jika sedang dibuka
         const imgEl = document.getElementById('modalScreenshotImg');
         const timeEl = document.getElementById('modalScreenshotTime');
+        const loadingEl = document.getElementById('modalScreenshotLoading');
+        if (loadingEl) loadingEl.classList.add('hidden');
         if (imgEl && !document.getElementById('modalScreenshot').classList.contains('hidden')) {
-          imgEl.src = msg.image;
-          if (timeEl) timeEl.textContent = `Diambil pada: ${msg.time}`;
+          if (msg.image) {
+            imgEl.src = msg.image;
+            imgEl.classList.remove('hidden');
+          }
+          if (timeEl) timeEl.textContent = `Waktu: ${msg.time}`;
+
+          // Jika mode Live Screen aktif, jadwalkan permintaan frame berikutnya otomatis (1s)
+          if (isLiveScreen && !document.getElementById('modalScreenshot').classList.contains('hidden')) {
+            clearTimeout(liveScreenTimer);
+            liveScreenTimer = setTimeout(() => {
+              if (isLiveScreen && activeScreenClientId) {
+                sendCommand('screenshot', [activeScreenClientId], { width: 1280, quality: 75 });
+              }
+            }, 1000);
+          }
         }
       } else if (msg.type === 'CLIENTS_UPDATE') {
         state.clients = msg.data;
@@ -432,30 +447,60 @@ function renderClients() {
             </button>
           `}
 
-          <!-- Screenshot -->
-          <button data-action="screenshot" data-client-id="${c.clientId}" title="Ambil Tangkapan Layar" class="btn-card-action p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs transition">
-            <i class="ph-bold ph-camera text-sm"></i>
+          <!-- Live Monitor Layar Siswa -->
+          <button data-action="live-screen" data-client-id="${c.clientId}" title="🖥️ Pantau Layar Siswa Realtime (Live Monitor)" class="btn-card-action px-2 py-1.5 rounded-lg bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-200 border border-cyan-500/35 text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-95">
+            <i class="ph-bold ph-desktop text-sm"></i> Layar
           </button>
 
-          <!-- Kirim Pesan ke PC Ini Saja -->
-          <button data-action="message-single" data-client-id="${c.clientId}" title="Kirim Pesan ke Komputer Ini Saja (Otomatis tertutup 30 detik)" class="btn-card-action p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs transition active:scale-95">
-            <i class="ph-bold ph-chat-circle-dots text-sm"></i>
-          </button>
-
-          <!-- Reset Sesi Siswa (Kill + Auto Launch Ulang Bersih) -->
-          <button data-action="reset-session" data-client-id="${c.clientId}" title="🔄 Reset Sesi Siswa (Tutup Paksa & Luncurkan Ulang Bersih saat Siswa Macet)" class="btn-card-action p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs transition active:scale-95">
-            <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i>
-          </button>
-
-          <!-- Pantau Kamera -->
-          <button data-action="camera" data-client-id="${c.clientId}" title="Pantau Kamera Siswa" class="btn-card-action px-2.5 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-semibold flex items-center gap-1.5 transition">
+          <!-- Pantau Kamera Wajah -->
+          <button data-action="camera" data-client-id="${c.clientId}" title="📹 Pantau Kamera Siswa" class="btn-card-action px-2 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-95">
             <i class="ph-bold ph-webcam text-sm"></i> Kamera
           </button>
 
-          <!-- Kill Force -->
-          <button data-action="kill" data-client-id="${c.clientId}" title="Force Kill ExamBrowser" class="btn-card-action p-1.5 rounded-lg bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 text-xs transition">
-            <i class="ph-bold ph-x text-sm"></i>
+          <!-- Kirim Pesan Cepat -->
+          <button data-action="message-single" data-client-id="${c.clientId}" title="📢 Kirim Pesan ke PC Ini Saja (Otomatis tertutup 30 detik)" class="btn-card-action p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs transition active:scale-95">
+            <i class="ph-bold ph-chat-circle-dots text-sm"></i>
           </button>
+
+          <!-- Menu Opsi Manajemen Lab PC Ini -->
+          <div class="relative inline-block text-left">
+            <button data-action="lab-menu-toggle" data-client-id="${c.clientId}" title="⚙️ Opsi Manajemen Lab Lengkap untuk PC Ini" class="btn-card-action p-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 border border-slate-600/50 text-xs transition">
+              <i class="ph-bold ph-dots-three-vertical text-sm"></i>
+            </button>
+            <div id="cardLabMenu_${c.clientId}" class="card-lab-dropdown hidden absolute right-0 bottom-full mb-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 py-1.5 text-xs">
+              <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Manajemen Lab (KBM)</div>
+              <button data-action="lab-lock-screen" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-lock"></i> Kunci Layar Siswa
+              </button>
+              <button data-action="lab-unlock-screen" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-lock-open"></i> Buka Layar Siswa
+              </button>
+              <button data-action="lab-open-url" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-globe"></i> Buka Halaman Web/Tugas...
+              </button>
+              <div class="border-t border-slate-800 my-1"></div>
+              <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Keamanan & Sistem</div>
+              <button data-action="lab-lock-wallpaper" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-image"></i> Kunci Wallpaper Desktop
+              </button>
+              <button data-action="lab-unlock-wallpaper" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-slate-300 hover:bg-slate-700/50 flex items-center gap-2">
+                <i class="ph-bold ph-image"></i> Buka Kunci Wallpaper
+              </button>
+              <button data-action="lab-lock-installer" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-shield-check"></i> Blokir Instalasi Software
+              </button>
+              <button data-action="lab-unlock-installer" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-shield"></i> Buka Izin Instalasi
+              </button>
+              <div class="border-t border-slate-800 my-1"></div>
+              <button data-action="reset-session" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset Sesi Siswa (Fresh)
+              </button>
+              <button data-action="kill" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2">
+                <i class="ph-bold ph-x"></i> Paksa Berhenti (Kill)
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -491,6 +536,44 @@ function attachCardEvents() {
       const clientId = targetBtn.getAttribute('data-client-id');
 
       switch (action) {
+        case 'live-screen':
+          const scl = state.clients.find((c) => c.clientId === clientId);
+          if (scl) openScreenshotModal(scl);
+          break;
+        case 'lab-menu-toggle':
+          e.stopPropagation();
+          const targetMenu = document.getElementById(`cardLabMenu_${clientId}`);
+          document.querySelectorAll('.card-lab-dropdown').forEach(d => {
+            if (d !== targetMenu) d.classList.add('hidden');
+          });
+          if (targetMenu) targetMenu.classList.toggle('hidden');
+          break;
+        case 'lab-lock-screen':
+          sendCommand('lock_screen', [clientId]);
+          break;
+        case 'lab-unlock-screen':
+          sendCommand('unlock_screen', [clientId]);
+          break;
+        case 'lab-lock-wallpaper':
+          sendCommand('lock_wallpaper', [clientId]);
+          break;
+        case 'lab-unlock-wallpaper':
+          sendCommand('unlock_wallpaper', [clientId]);
+          break;
+        case 'lab-lock-installer':
+          sendCommand('lock_installer', [clientId]);
+          break;
+        case 'lab-unlock-installer':
+          sendCommand('unlock_installer', [clientId]);
+          break;
+        case 'lab-open-url':
+          const uClient = state.clients.find(c => c.clientId === clientId);
+          const uHost = uClient ? uClient.hostname : clientId;
+          const targetUrl = prompt(`Buka tautan website/tugas di ${uHost}:`, 'https://');
+          if (targetUrl && targetUrl.trim() && targetUrl !== 'https://') {
+            sendCommand('open_url', [clientId], { url: targetUrl.trim() });
+          }
+          break;
         case 'wake':
           wakePCs([clientId]);
           break;
@@ -620,14 +703,56 @@ function escapeHtml(str) {
   }[tag] || tag));
 }
 
-// --- MODAL UTILITIES ---
+// --- MODAL UTILITIES (LIVE SCREEN & PREVIEW) ---
+let activeScreenClientId = null;
+let isLiveScreen = true;
+let liveScreenTimer = null;
+
+function updateLiveScreenButtonUI() {
+  const btn = document.getElementById('btnToggleLiveScreen');
+  const lbl = document.getElementById('lblLiveScreenStatus');
+  if (!btn || !lbl) return;
+
+  if (isLiveScreen) {
+    btn.className = 'px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 hover:bg-cyan-900/50';
+    lbl.textContent = '🔴 LIVE MONITOR AKTIF';
+  } else {
+    btn.className = 'px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700';
+    lbl.textContent = '⏸️ LIVE DIJEDA';
+  }
+}
 
 function openScreenshotModal(client) {
-  document.getElementById('modalScreenshotTitle').textContent = `Layar: ${client.hostname} (${client.ip})`;
-  document.getElementById('modalScreenshotImg').src = client.latestScreenshot;
-  document.getElementById('modalScreenshotTime').textContent = `Diambil pada: ${client.screenshotTime || '-'}`;
+  if (!client) return;
+  activeScreenClientId = client.clientId;
+  isLiveScreen = true;
+  updateLiveScreenButtonUI();
+
+  const desk = client.deskNumber ? `(Meja ${client.deskNumber})` : '';
+  const titleEl = document.getElementById('modalScreenshotTitle');
+  if (titleEl) titleEl.textContent = `Pantauan Layar Siswa: ${client.hostname} ${desk} (${client.ip})`;
+
+  const imgEl = document.getElementById('modalScreenshotImg');
+  const timeEl = document.getElementById('modalScreenshotTime');
+  const loadingEl = document.getElementById('modalScreenshotLoading');
+
+  if (imgEl) {
+    if (client.latestScreenshot) {
+      imgEl.src = client.latestScreenshot;
+      imgEl.classList.remove('hidden');
+    } else {
+      imgEl.classList.add('hidden');
+    }
+  }
+  if (timeEl) timeEl.textContent = `Waktu: ${client.screenshotTime || 'Menghubungkan...'}`;
+  if (loadingEl && !client.latestScreenshot) loadingEl.classList.remove('hidden');
+
   document.getElementById('modalScreenshot').classList.remove('hidden');
+
+  // Segera kirim permintaan frame screenshot layar beresolusi tajam
+  sendCommand('screenshot', [activeScreenClientId], { width: 1280, quality: 75 });
 }
+window.openScreenshotModal = openScreenshotModal;
 
 // --- MODAL KIRIM PESAN (TOP-LEVEL FUNCTION) ---
 let activeMsgTarget = 'ALL';
@@ -1118,6 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.addEventListener('click', () => {
     moreDropdown.classList.add('hidden');
+    document.querySelectorAll('.card-lab-dropdown').forEach(d => d.classList.add('hidden'));
   });
 
   // Menu items inside dropdown
@@ -1451,8 +1577,133 @@ document.addEventListener('DOMContentLoaded', () => {
       activeCameraClientId = null;
       isLiveCamera = false;
       clearTimeout(liveStreamTimer);
+
+      activeScreenClientId = null;
+      isLiveScreen = false;
+      clearTimeout(liveScreenTimer);
     });
   });
+
+  // --- LIVE SCREEN MONITOR EVENT LISTENERS ---
+  const btnToggleLiveScreen = document.getElementById('btnToggleLiveScreen');
+  if (btnToggleLiveScreen) {
+    btnToggleLiveScreen.addEventListener('click', () => {
+      isLiveScreen = !isLiveScreen;
+      updateLiveScreenButtonUI();
+      if (isLiveScreen && activeScreenClientId) {
+        sendCommand('screenshot', [activeScreenClientId], { width: 1280, quality: 75 });
+      } else {
+        clearTimeout(liveScreenTimer);
+      }
+    });
+  }
+
+  const btnRefreshScreen = document.getElementById('btnRefreshScreenOnce');
+  if (btnRefreshScreen) {
+    btnRefreshScreen.addEventListener('click', () => {
+      if (activeScreenClientId) {
+        const loadingEl = document.getElementById('modalScreenshotLoading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+        sendCommand('screenshot', [activeScreenClientId], { width: 1280, quality: 75 });
+      }
+    });
+  }
+
+  const btnFsScreen = document.getElementById('btnFullscreenScreen');
+  if (btnFsScreen) {
+    btnFsScreen.addEventListener('click', () => {
+      const el = document.getElementById('modalScreenshotContainer');
+      const lbl = document.getElementById('lblFullscreenScreen');
+      if (!document.fullscreenElement) {
+        if (el.requestFullscreen) {
+          el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        }
+        if (lbl) lbl.textContent = 'Keluar Layar Penuh';
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        if (lbl) lbl.textContent = 'Layar Penuh';
+      }
+    });
+  }
+
+  const btnScMsg = document.getElementById('btnScreenActionMessage');
+  if (btnScMsg) {
+    btnScMsg.addEventListener('click', () => {
+      if (activeScreenClientId) openSendMessageModal(activeScreenClientId);
+    });
+  }
+
+  const btnScLock = document.getElementById('btnScreenActionLock');
+  if (btnScLock) {
+    btnScLock.addEventListener('click', () => {
+      if (activeScreenClientId) sendCommand('lock_screen', [activeScreenClientId]);
+    });
+  }
+
+  const btnScUnlock = document.getElementById('btnScreenActionUnlock');
+  if (btnScUnlock) {
+    btnScUnlock.addEventListener('click', () => {
+      if (activeScreenClientId) sendCommand('unlock_screen', [activeScreenClientId]);
+    });
+  }
+
+  // --- SELECTION BANNER MANAJEMEN LAB ACTIONS ---
+  const btnLockSelected = document.getElementById('btnLockScreenSelected');
+  if (btnLockSelected) {
+    btnLockSelected.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      sendCommand('lock_screen');
+    });
+  }
+
+  const btnUnlockSelected = document.getElementById('btnUnlockScreenSelected');
+  if (btnUnlockSelected) {
+    btnUnlockSelected.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      sendCommand('unlock_screen');
+    });
+  }
+
+  const btnScreenSelected = document.getElementById('btnScreenshotSelected');
+  if (btnScreenSelected) {
+    btnScreenSelected.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      sendCommand('screenshot');
+    });
+  }
+
+  const btnUrlSelected = document.getElementById('btnOpenUrlSelected');
+  if (btnUrlSelected) {
+    btnUrlSelected.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      const url = prompt(`Buka tautan website/tugas untuk ${state.selectedIds.size} PC terpilih:`, 'https://');
+      if (url && url.trim() && url !== 'https://') {
+        sendCommand('open_url', Array.from(state.selectedIds), { url: url.trim() });
+      }
+    });
+  }
+
+  const btnWallSelected = document.getElementById('btnLockWallpaperSelected');
+  if (btnWallSelected) {
+    btnWallSelected.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      sendCommand('lock_wallpaper');
+    });
+  }
+
+  const btnInstSelected = document.getElementById('btnLockInstallerSelected');
+  if (btnInstSelected) {
+    btnInstSelected.addEventListener('click', () => {
+      if (state.selectedIds.size === 0) return alert('Pilih minimal 1 komputer!');
+      sendCommand('lock_installer');
+    });
+  }
 
   // Confirm Power (Shutdown/Restart)
   document.getElementById('btnConfirmPower').addEventListener('click', () => {

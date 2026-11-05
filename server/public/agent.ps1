@@ -916,8 +916,12 @@ function Capture-CameraSnapshot {
 }
 
 function Take-ScreenThumbnail {
+    param(
+        [int]$TargetWidth = 1024,
+        [long]$Quality = 70
+    )
     # Ambil screenshot jernih & ringan via Win32 GDI
-    $thumb = Capture-CleanScreenJpeg -TargetWidth 480 -Quality 50
+    $thumb = Capture-CleanScreenJpeg -TargetWidth $TargetWidth -Quality $Quality
     return $thumb
 }
 
@@ -961,7 +965,9 @@ function Handle-Task {
             $result.message = $res.Message
         }
         "screenshot" {
-            $img = Take-ScreenThumbnail
+            $w = if ($params.width) { [int]$params.width } else { 1024 }
+            $q = if ($params.quality) { [long]$params.quality } else { 70 }
+            $img = Take-ScreenThumbnail -TargetWidth $w -Quality $q
             if ($img) {
                 $result.success = $true
                 $result.message = "Screenshot berhasil diambil."

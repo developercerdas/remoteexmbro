@@ -469,34 +469,34 @@ function renderClients() {
             </button>
             <div id="cardLabMenu_${c.clientId}" class="card-lab-dropdown hidden absolute right-0 bottom-full mb-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 py-1.5 text-xs">
               <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Manajemen Lab (KBM)</div>
-              <button data-action="lab-lock-screen" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+              <button data-action="lab-lock-screen" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-lock"></i> Kunci Layar Siswa
               </button>
-              <button data-action="lab-unlock-screen" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+              <button data-action="lab-unlock-screen" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-lock-open"></i> Buka Layar Siswa
               </button>
-              <button data-action="lab-open-url" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2">
+              <button data-action="lab-open-url" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-globe"></i> Buka Halaman Web/Tugas...
               </button>
               <div class="border-t border-slate-800 my-1"></div>
               <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Keamanan & Sistem</div>
-              <button data-action="lab-lock-wallpaper" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+              <button data-action="lab-lock-wallpaper" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-image"></i> Kunci Wallpaper Desktop
               </button>
-              <button data-action="lab-unlock-wallpaper" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-slate-300 hover:bg-slate-700/50 flex items-center gap-2">
+              <button data-action="lab-unlock-wallpaper" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-slate-300 hover:bg-slate-700/50 flex items-center gap-2">
                 <i class="ph-bold ph-image"></i> Buka Kunci Wallpaper
               </button>
-              <button data-action="lab-lock-installer" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
+              <button data-action="lab-lock-installer" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-shield-check"></i> Blokir Instalasi Software
               </button>
-              <button data-action="lab-unlock-installer" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
+              <button data-action="lab-unlock-installer" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-shield"></i> Buka Izin Instalasi
               </button>
               <div class="border-t border-slate-800 my-1"></div>
-              <button data-action="reset-session" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
+              <button data-action="reset-session" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset Sesi Siswa (Fresh)
               </button>
-              <button data-action="kill" data-client-id="${c.clientId}" class="w-full text-left px-3 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2">
+              <button data-action="kill" data-client-id="${c.clientId}" class="btn-card-action w-full text-left px-3 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2">
                 <i class="ph-bold ph-x"></i> Paksa Berhenti (Kill)
               </button>
             </div>
@@ -534,6 +534,10 @@ function attachCardEvents() {
       const targetBtn = e.currentTarget;
       const action = targetBtn.getAttribute('data-action');
       const clientId = targetBtn.getAttribute('data-client-id');
+
+      if (action !== 'lab-menu-toggle') {
+        document.querySelectorAll('.card-lab-dropdown').forEach(d => d.classList.add('hidden'));
+      }
 
       switch (action) {
         case 'live-screen':

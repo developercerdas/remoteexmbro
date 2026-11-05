@@ -544,9 +544,10 @@ app.post('/api/command', (req, res) => {
     };
   } else if (command === 'open_url') {
     const rawUrl = (params.url || 'https://google.com').replace(/[`"$]/g, '');
+    // KUNCI KEAMANAN: Jangan buka web jika ExamBrowser sedang berjalan agar ujian tetap terkunci aman!
     finalCommand = 'exec_custom';
     finalParams = {
-      script: `$u = '${rawUrl}'; try { Start-Process "chrome.exe" $u -ErrorAction Stop } catch { try { Start-Process "msedge.exe" $u -ErrorAction Stop } catch { Start-Process $u } }`
+      script: `$exam = Get-Process -Name 'elekbrowser','runningexam','ExamBrowser' -ErrorAction SilentlyContinue; if ($exam) { Write-Output 'DITOLAK: ExamBrowser sedang aktif. Membuka web diblokir demi keamanan ujian.'; exit 0 }; $u = '${rawUrl}'; try { Start-Process "chrome.exe" $u -ErrorAction Stop } catch { try { Start-Process "msedge.exe" $u -ErrorAction Stop } catch { Start-Process $u } }`
     };
   } else if (command === 'lock_screen') {
     const rawMsg = (params.message || 'Layar dikunci sementara oleh Guru / Proktor.\\nHarap perhatikan penjelasan di depan kelas.').replace(/[`"$]/g, ' ');

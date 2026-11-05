@@ -534,9 +534,13 @@ app.post('/api/command', (req, res) => {
     };
   } else if (command === 'send_message') {
     const rawMsg = (params.message || 'Pemberitahuan dari Guru/Proktor').replace(/[`"$]/g, ' ');
+    const duration = parseInt(params.duration, 10) || 30;
+    const fullMsg = rawMsg + '\n\n⏳ (Pesan ini akan otomatis tertutup dalam ' + duration + ' detik)';
+    const safeMsg = fullMsg.replace(/\r?\n/g, '`n');
+    const safeTitle = (params.title || '📢 PENGUMUMAN DARI PROKTOR / GURU').replace(/[`"$]/g, ' ');
     finalCommand = 'exec_custom';
     finalParams = {
-      script: `[System.Console]::Beep(1400, 250); [System.Console]::Beep(1800, 350); Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show("${rawMsg}", "PENGUMUMAN DARI PROKTOR", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)`
+      script: '[System.Console]::Beep(1400, 200); [System.Console]::Beep(1800, 300); $w = New-Object -ComObject Wscript.Shell; $w.Popup("' + safeMsg + '", ' + duration + ', "' + safeTitle + '", 64)'
     };
   } else if (command === 'open_url') {
     const url = (params.url || 'https://google.com').replace(/[`"$]/g, '');

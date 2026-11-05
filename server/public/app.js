@@ -437,6 +437,11 @@ function renderClients() {
             <i class="ph-bold ph-camera text-sm"></i>
           </button>
 
+          <!-- Kirim Pesan ke PC Ini Saja -->
+          <button data-action="message-single" data-client-id="${c.clientId}" title="Kirim Pesan ke Komputer Ini Saja (Otomatis tertutup 30 detik)" class="btn-card-action p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs transition active:scale-95">
+            <i class="ph-bold ph-chat-circle-dots text-sm"></i>
+          </button>
+
           <!-- Reset Sesi Siswa (Kill + Auto Launch Ulang Bersih) -->
           <button data-action="reset-session" data-client-id="${c.clientId}" title="🔄 Reset Sesi Siswa (Tutup Paksa & Luncurkan Ulang Bersih saat Siswa Macet)" class="btn-card-action p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs transition active:scale-95">
             <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i>
@@ -511,6 +516,9 @@ function attachCardEvents() {
           break;
         case 'quick-edit-desk':
           promptQuickEditDesk(clientId);
+          break;
+        case 'message-single':
+          openSendMessageModal(clientId);
           break;
         case 'reset-session':
           const rClient = state.clients.find((c) => c.clientId === clientId);
@@ -1226,23 +1234,153 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const btnSendMsg = document.getElementById('btnMassSendMessage');
-  if (btnSendMsg) {
-    btnSendMsg.addEventListener('click', () => {
-      document.getElementById('modalSendMessage').classList.remove('hidden');
-    });
+  // --- FITUR KIRIM PESAN KE SISWA (AUTO-CLOSE 30 DETIK) ---
+  let activeMsgTarget = 'ALL';
+  let specificTargetClientId = null;
+
+  function openSendMessageModal(target) {
+    const modal = document.getElementById('modalSendMessage');
+    if (!modal) return;
+    const targetSelect = document.getElementById('msgTargetSelect');
+    const txtDetail = document.getElementById('txtTargetDetail');
+    const input = document.getElementById('sendMessageInput');
+
+    if (targetSelect) {
+      targetSelect.innerHTML = '';
+      if (typeof target === 'string') {
+        specificTargetClientId = target;
+        activeMsgTarget = 'SINGLE';
+        const c = state.clients.find(x => x.clientId === target);
+        const host = c ? c.hostname : target;
+        const desk = c && c.deskNumber ? ` (Meja ${c.deskNumber})` : '';
+        const opt = document.createElement('option');
+        opt.value = 'SINGLE';
+        opt.textContent = `💻 Komputer Spesifik: ${host}${desk}`;
+        targetSelect.appendChild(opt);
+
+        const optAll = document.createElement('option');
+        optAll.value = 'ALL';
+        optAll.textContent = '🌐 Seluruh Komputer di Lab (Serentak)';
+        targetSelect.appendChild(optAll);
+        
+        if (txtDetail) txtDetail.textContent = `Pesan akan dikirim HANYA ke komputer ${host}${desk}.`;
+      } else {
+        specificTargetClientId = null;
+        const optAll = document.createElement('option');
+        optAll.value = 'ALL';
+        optAll.textContent = `🌐 Seluruh Komputer di Lab (${state.clients.filter(c => c.online).length} PC Online)`;
+        targetSelect.appendChild(optAll);
+
+        if (state.selectedIds && state.selectedIds.size > 0) {
+          const optSel = document.createElement('option');
+          optSel.value = 'SELECTED';
+          optSel.textContent = `☑️ Komputer yang Dicentang (${state.selectedIds.size} PC Terpilih)`;
+          targetSelect.appendChild(optSel);
+          targetSelect.value = 'SELECTED';
+          activeMsgTarget = 'SELECTED';
+          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke ${state.selectedIds.size} komputer yang sedang dicentang.`;
+        } else {
+          targetSelect.value = 'ALL';
+          activeMsgTarget = 'ALL';
+          if (txtDetail) txtDetail.textContent = 'Pesan akan dikirim serentak ke seluruh komputer yang online.';
+        }
+
+        if (state.currentLab && state.currentLab !== 'ALL') {
+          const optLab = document.createElement('option');
+          optLab.value = 'CURRENT_LAB';
+          optLab.textContent = `🏛️ Komputer di Lab ${state.currentLab} Saja`;
+          targetSelect.appendChild(optLab);
+        }
+      }
+
+      targetSelect.onchange = () => {
+        activeMsgTarget = targetSelect.value;
+        if (activeMsgTarget === 'ALL') {
+          if (txtDetail) txtDetail.textContent = 'Pesan akan dikirim serentak ke seluruh komputer yang online.';
+        } else if (activeMsgTarget === 'SELECTED') {
+          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke ${state.selectedIds.size} komputer yang dicentang.`;
+        } else if (activeMsgTarget === 'CURRENT_LAB') {
+          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim ke seluruh komputer di Lab ${state.currentLab}.`;
+        } else if (activeMsgTarget === 'SINGLE') {
+          const c = state.clients.find(x => x.clientId === specificTargetClientId);
+          const host = c ? c.hostname : specificTargetClientId;
+          if (txtDetail) txtDetail.textContent = `Pesan akan dikirim HANYA ke komputer ${host}.`;
+        }
+      };
+    }
+
+    modal.classList.remove('hidden');
+    if (input) {
+      input.focus();
+    }
   }
 
+  // Tombol buka modal kirim pesan dari berbagai tempat
+  const btnOpenMsgExam = document.getElementById('btnOpenSendMessageExam');
+  if (btnOpenMsgExam) {
+    btnOpenMsgExam.addEventListener('click', () => openSendMessageModal());
+  }
+
+  const btnOpenMsgLab = document.getElementById('btnMassSendMessage');
+  if (btnOpenMsgLab) {
+    btnOpenMsgLab.addEventListener('click', () => openSendMessageModal());
+  }
+
+  const btnOpenMsgSelected = document.getElementById('btnSendMessageSelected');
+  if (btnOpenMsgSelected) {
+    btnOpenMsgSelected.addEventListener('click', () => openSendMessageModal());
+  }
+
+  // Template Preset Buttons
+  document.querySelectorAll('.btn-msg-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const txt = btn.getAttribute('data-text');
+      const input = document.getElementById('sendMessageInput');
+      if (input && txt) {
+        input.value = txt;
+        input.focus();
+      }
+    });
+  });
+
+  // Confirm Send Message Handler
   const btnConfirmSendMsg = document.getElementById('btnConfirmSendMessage');
   if (btnConfirmSendMsg) {
     btnConfirmSendMsg.addEventListener('click', () => {
       const msg = document.getElementById('sendMessageInput').value.trim();
       if (!msg) {
-        alert('Tulis pesan yang ingin dikirim!');
+        alert('Tuliskan pesan pengumuman yang ingin dikirim!');
         return;
       }
-      sendCommand('send_message', null, { message: msg });
-      document.getElementById('modalSendMessage').classList.add('hidden');
+
+      // Ambil durasi auto-close
+      const durRadio = document.querySelector('input[name="msgDuration"]:checked');
+      const duration = durRadio ? parseInt(durRadio.value, 10) : 30;
+
+      let targets = null;
+      if (activeMsgTarget === 'SINGLE' && specificTargetClientId) {
+        targets = [specificTargetClientId];
+      } else if (activeMsgTarget === 'SELECTED') {
+        targets = Array.from(state.selectedIds);
+      } else if (activeMsgTarget === 'CURRENT_LAB') {
+        targets = state.clients
+          .filter(c => c.online && (state.currentLab === 'ALL' || c.labName === state.currentLab))
+          .map(c => c.clientId);
+      } else {
+        targets = 'all';
+      }
+
+      btnConfirmSendMsg.disabled = true;
+      btnConfirmSendMsg.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Mengirim...';
+
+      sendCommand('send_message', targets, { message: msg, duration });
+
+      setTimeout(() => {
+        btnConfirmSendMsg.disabled = false;
+        btnConfirmSendMsg.innerHTML = '<i class="ph-bold ph-megaphone text-base"></i><span>Kirim Pesan Sekarang</span>';
+        document.getElementById('modalSendMessage').classList.add('hidden');
+        alert(`Pengumuman berhasil dikirim! Pesan akan otomatis tertutup sendiri di layar siswa setelah ${duration} detik.`);
+      }, 500);
     });
   }
 
